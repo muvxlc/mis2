@@ -1,0 +1,35 @@
+{
+  "name": "nuxt-base-stack",
+  "description": "Nuxt 4 base stack with Docker, MariaDB, Redis, Authentication, and User Management",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "npx tsx server/scripts/seed.ts"
+  },
+  "dependencies": {
+    "@nuxt/ui": "^4.6.0",
+    "bcryptjs": "^3.0.2",
+    "drizzle-orm": "^0.40.0",
+
+    "jose": "^6.0.0",
+    "mysql2": "^3.13.0",
+    "nuxt": "^4.1.1",
+    "vue": "^3.5.13",
+    "vue-router": "^5.0.0"
+  },
+  "devDependencies": {
+    "@nuxt/eslint": "^1.1.0",
+    "drizzle-kit": "^0.30.5",
+    "eslint": "^10.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.8.2"
+  }
+}

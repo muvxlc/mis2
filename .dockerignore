@@ -1,0 +1,57 @@
+# Dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+pnpm-lock.yaml
+
+# Build outputs
+.output
+.nuxt
+.nitro
+.cache
+dist
+
+# Development files
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+.github
+
+# Documentation
+README.md
+docs/
+
+# IDE
+.vscode
+.idea
+.DS_Store
+*.swp
+*.swo
+
+# Testing
+coverage
+.nyc_output
+
+# Other
+.backup.sql
+*.sql
+!init-db.sql
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+nginx.conf
+nginx-ssl/
+
+# Skills & Agents
+.agents
+skills-lock.json
+graphify-out/
+
+# Python
+python/
