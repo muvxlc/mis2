@@ -30,6 +30,20 @@ export const users = mysqlTable('users', {
   updatedAt: timestamp('updated_at').onUpdateNow(),
 });
 
+export const externalDatabases = mysqlTable('external_databases', {
+  id: int('id').autoincrement().primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  type: varchar('type', { length: 20 }).notNull().default('mysql'), // mysql, postgres
+  host: varchar('host', { length: 255 }).notNull(),
+  port: int('port').notNull().default(3306),
+  username: varchar('username', { length: 255 }).notNull(),
+  password: varchar('password', { length: 255 }).notNull(),
+  database: varchar('database', { length: 255 }).notNull(),
+  isActive: int('is_active').default(1),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').onUpdateNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ one }) => ({
   role: one(roles, { fields: [users.roleId], references: [roles.id] }),

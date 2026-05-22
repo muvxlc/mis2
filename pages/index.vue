@@ -1,6 +1,16 @@
 <script setup lang="ts">
 const { user } = useUser();
 
+// Fetch HOSxP Data
+const { data: hosxpData, refresh: refreshCount } = await useAsyncData('hosxp_stats', () => $fetch('/api/hosxp/patient-count'));
+const { data: visitData, refresh: refreshOverview } = await useAsyncData('hosxp_visits', () => $fetch('/api/hosxp/visit-overview'));
+
+// Calculate max for chart scaling
+const maxVisits = computed(() => {
+    if (!visitData.value?.data?.length) return 100;
+    return Math.max(...visitData.value.data.map((d: any) => d.count), 10);
+});
+
 const recentOrders = [
     { id: '2435678', product: 'Yellow New Jacket', date: '2023-08-12', price: '$10.00', status: 'Paid', color: 'bg-green-500' },
     { id: '2435679', product: 'Nike Air Max', date: '2023-08-11', price: '$120.00', status: 'Pending', color: 'bg-orange-500' },
@@ -37,39 +47,76 @@ const activities = [
                     <div class="absolute right-10 top-10 w-20 h-20 bg-white/5 rounded-full"></div>
                 </div>
 
-                <!-- Sales Overview -->
+                <!-- Visit Overview -->
                 <div class="lg:col-span-8 bg-white dark:bg-gray-900 rounded-[2rem] p-8 shadow-sm border border-gray-100 dark:border-gray-800">
                     <div class="flex items-center justify-between mb-8">
-                        <h3 class="text-xl font-bold">Sales Overview</h3>
-                        <USelect 
-                            :options="['This Year', 'Last Year']" 
-                            size="sm" 
-                            variant="ghost" 
-                            class="font-bold text-gray-400"
-                        />
-                    </div>
-                    <!-- Chart Placeholder -->
-                    <div class="h-48 flex items-end gap-2 px-4">
-                        <div v-for="i in 12" :key="i" class="flex-1 bg-[#f5f7fb] dark:bg-gray-800 rounded-t-lg relative group" :style="{ height: Math.random() * 100 + '%' }">
-                            <div class="absolute inset-0 bg-[#24695c]/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-t-lg"></div>
+                        <div>
+                            <h3 class="text-xl font-bold">Visit Overview</h3>
+                            <p class="text-xs text-gray-400 mt-1">สถิติผู้รับบริการรายวัน (เดือนปัจจุบัน)</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <UBadge color="emerald" variant="subtle" class="font-bold">
+                                {{ visitData?.status === 'success' ? visitData.dbName : 'Slave DB' }}
+                            </UBadge>
+                            <UButton icon="i-heroicons-arrow-path" variant="ghost" color="gray" @click="refreshOverview" />
                         </div>
                     </div>
-                    <div class="flex justify-between mt-4 px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                        <span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span>
-                        <span>Jul</span><span>Aug</span><span>Sep</span><span>Oct</span><span>Nov</span><span>Dec</span>
+                    
+                    <!-- Dynamic Chart Rendering -->
+                    <div class="h-64 flex items-end gap-1.5 px-4 overflow-x-auto pb-4 pt-10">
+                        <template v-if="visitData?.status === 'success'">
+                            <div 
+                                v-for="item in visitData.data" 
+                                :key="item.day" 
+                                class="flex-1 min-w-[18px] rounded-t-lg relative group transition-all duration-500"
+                                :style="{ height: (item.count / maxVisits * 100) + '%' }"
+                                :class="item.day === new Date().getDate() 
+                                    ? 'bg-[#ba895d] shadow-lg shadow-[#ba895d]/30' 
+                                    : 'bg-[#24695c]/80 hover:bg-[#24695c]'"
+                            >
+                                <!-- Floating Label on top of bar -->
+                                <div 
+                                    v-if="item.count > 0"
+                                    class="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-black text-[#24695c] dark:text-[#e0f2f1]"
+                                >
+                                    {{ item.count }}
+                                </div>
+
+                                <div class="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-t-lg"></div>
+                                
+                                <!-- Tooltip on Hover -->
+                                <div class="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#2c323f] text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-10 font-bold shadow-xl border border-white/10">
+                                    วันที่ {{ item.day }}: {{ item.count }} คน
+                                </div>
+                            </div>
+                        </template>
+                        <template v-else>
+                             <div v-for="i in 30" :key="i" class="flex-1 min-w-[18px] bg-gray-100 dark:bg-gray-800 rounded-t-lg h-4 opacity-50"></div>
+                        </template>
+                    </div>
+                    
+                    <div class="flex justify-between mt-4 px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider overflow-x-auto gap-2">
+                        <span v-for="i in 31" :key="i" v-show="i % 5 === 1 || i === 31">{{ i }}</span>
                     </div>
                 </div>
             </div>
 
             <!-- Row 2 -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div class="bg-white dark:bg-gray-900 rounded-[2rem] p-8 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center gap-6">
-                    <div class="w-16 h-16 bg-[#f5f7fb] dark:bg-gray-800 rounded-2xl flex items-center justify-center text-2xl">¥</div>
-                    <div>
-                        <div class="text-gray-400 text-sm font-bold uppercase tracking-wider">Purchase</div>
-                        <div class="text-2xl font-bold mt-1">10,000</div>
+                <div class="bg-white dark:bg-gray-900 rounded-[2rem] p-8 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center gap-6 group hover:shadow-xl hover:shadow-[#24695c]/5 transition-all duration-300">
+                    <div class="w-16 h-16 bg-[#e0f2f1] dark:bg-[#1a4d43]/30 rounded-2xl flex items-center justify-center text-[#24695c] text-3xl group-hover:scale-110 transition-transform">
+                        <UIcon name="i-heroicons-users" />
                     </div>
-                    <div class="ml-auto text-green-500 font-bold">+50%</div>
+                    <div>
+                        <div class="text-gray-400 text-sm font-bold uppercase tracking-wider">ผู้รับบริการวันนี้</div>
+                        <div class="text-3xl font-black text-[#2c323f] dark:text-white mt-1">
+                            {{ hosxpData?.status === 'success' ? hosxpData.count.toLocaleString() : '...' }}
+                        </div>
+                    </div>
+                    <div v-if="hosxpData?.status === 'success'" class="ml-auto text-green-500 font-bold flex items-center gap-1">
+                        <UIcon name="i-heroicons-arrow-trending-up" />
+                        <span>จาก HOSxP</span>
+                    </div>
                 </div>
                 <div class="bg-white dark:bg-gray-900 rounded-[2rem] p-8 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center gap-6">
                     <div class="w-16 h-16 bg-[#f5f7fb] dark:bg-gray-800 rounded-2xl flex items-center justify-center text-2xl">⚽</div>

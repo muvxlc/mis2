@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Viho Style Concept for MIS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap');
+        
+        :root {
+            --viho-primary: #24695c;
+            --viho-secondary: #ba895d;
+            --viho-bg: #f5f7fb;
+            --viho-sidebar: #ffffff;
+            --viho-text: #2b2b2b;
+        }
+
+        body {
+            font-family: 'IBM Plex Sans Thai', sans-serif;
+            color: var(--viho-text);
+            background-color: var(--viho-bg);
+        }
+
+        .sidebar {
+            background-color: var(--viho-sidebar);
+            box-shadow: 0 0 20px rgba(89, 102, 122, 0.1);
+        }
+
+        .sidebar-item {
+            color: #898989;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-item.active {
+            color: var(--viho-primary);
+            background-color: rgba(36, 105, 92, 0.1);
+            border-left: 3px solid var(--viho-primary);
+        }
+
+        .header {
+            background-color: #ffffff;
+            box-shadow: 0 0 20px rgba(89, 102, 122, 0.1);
+        }
+
+        .card {
+            background: #ffffff;
+            border-radius: 15px;
+            border: none;
+            box-shadow: 0 0 20px rgba(89, 102, 122, 0.05);
+        }
+
+        .breadcrumb-area {
+            padding: 20px 0;
+        }
+
+        .status-badge {
+            padding: 5px 12px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-success { background: rgba(81, 187, 37, 0.1); color: #51bb25; }
+        .status-pending { background: rgba(248, 214, 43, 0.1); color: #f8d62b; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+    <!-- Sidebar -->
+    <aside class="sidebar w-64 flex-shrink-0 flex flex-col z-30">
+        <div class="h-20 flex items-center px-6 border-b border-gray-100">
+            <span class="text-2xl font-black text-[#24695c]">MIS</span>
+        </div>
+        
+        <nav class="flex-1 overflow-y-auto py-6">
+            <div class="px-6 mb-4 text-xs font-bold text-gray-400 uppercase">General</div>
+            <a href="#" class="sidebar-item active flex items-center gap-3 px-6 py-3 text-sm font-medium">
+                <span>🏠</span> Dashboard
+            </a>
+            <a href="#" class="sidebar-item flex items-center gap-3 px-6 py-3 text-sm font-medium hover:bg-gray-50">
+                <span>📁</span> Widgets
+            </a>
+
+            <div class="px-6 mt-8 mb-4 text-xs font-bold text-gray-400 uppercase">Components</div>
+            <a href="#" class="sidebar-item flex items-center gap-3 px-6 py-3 text-sm font-medium hover:bg-gray-50">
+                <span>👥</span> Users
+            </a>
+            <a href="#" class="sidebar-item flex items-center gap-3 px-6 py-3 text-sm font-medium hover:bg-gray-50">
+                <span>📊</span> Charts
+            </a>
+        </nav>
+    </aside>
+
+    <!-- Main Wrapper -->
+    <div class="flex-1 flex flex-col min-w-0">
+        <!-- Header -->
+        <header class="header h-20 flex items-center px-8 justify-between z-20">
+            <div class="flex items-center flex-1">
+                <div class="relative w-64">
+                    <input type="text" placeholder="Search here..." class="w-full bg-gray-100 border-none rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-[#24695c]">
+                </div>
+            </div>
+            <div class="flex items-center gap-6">
+                <div class="relative">🔔 <span class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">3</span></div>
+                <div class="flex items-center gap-3 border-l pl-6 border-gray-100">
+                    <div class="text-right">
+                        <p class="text-sm font-bold">Admin User</p>
+                        <p class="text-[10px] text-gray-400">Super Admin</p>
+                    </div>
+                    <div class="w-10 h-10 bg-gray-200 rounded-lg"></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-y-auto p-8">
+            <div class="breadcrumb-area flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold">Default Dashboard</h2>
+                <div class="text-sm text-gray-400">Dashboard / Default</div>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="card p-6 flex items-center gap-4">
+                    <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 text-xl">👤</div>
+                    <div>
+                        <p class="text-sm text-gray-400">Total Users</p>
+                        <h4 class="text-2xl font-bold">1,250</h4>
+                    </div>
+                </div>
+                <div class="card p-6 flex items-center gap-4">
+                    <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center text-green-600 text-xl">📈</div>
+                    <div>
+                        <p class="text-sm text-gray-400">Revenue</p>
+                        <h4 class="text-2xl font-bold">$45,200</h4>
+                    </div>
+                </div>
+                <div class="card p-6 flex items-center gap-4">
+                    <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center text-purple-600 text-xl">📦</div>
+                    <div>
+                        <p class="text-sm text-gray-400">Orders</p>
+                        <h4 class="text-2xl font-bold">850</h4>
+                    </div>
+                </div>
+                <div class="card p-6 flex items-center gap-4">
+                    <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center text-orange-600 text-xl">💬</div>
+                    <div>
+                        <p class="text-sm text-gray-400">Messages</p>
+                        <h4 class="text-2xl font-bold">120</h4>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity Table -->
+            <div class="card p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-bold text-lg">Recent Transactions</h3>
+                    <button class="text-[#24695c] text-sm font-bold">View All</button>
+                </div>
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="text-gray-400 text-sm border-b border-gray-50">
+                            <th class="pb-4 font-medium">Customer</th>
+                            <th class="pb-4 font-medium">Date</th>
+                            <th class="pb-4 font-medium">Amount</th>
+                            <th class="pb-4 font-medium">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm">
+                        <tr class="border-b border-gray-50">
+                            <td class="py-4">John Doe</td>
+                            <td class="py-4">22 May 2026</td>
+                            <td class="py-4 font-bold">$120.00</td>
+                            <td class="py-4"><span class="status-badge status-success">Success</span></td>
+                        </tr>
+                        <tr class="border-b border-gray-50">
+                            <td class="py-4">Jane Smith</td>
+                            <td class="py-4">21 May 2026</td>
+                            <td class="py-4 font-bold">$85.50</td>
+                            <td class="py-4"><span class="status-badge status-pending">Pending</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

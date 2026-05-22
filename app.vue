@@ -25,7 +25,7 @@ useHead({
     ],
 });
 
-const navigation = [
+const navigation = computed(() => [
     {
         group: 'General',
         items: [
@@ -42,10 +42,17 @@ const navigation = [
             { label: 'Ecommerce', icon: 'i-heroicons-shopping-cart', to: '#' },
             { label: 'Email', icon: 'i-heroicons-envelope', to: '#' },
             { label: 'Chat', icon: 'i-heroicons-chat-bubble-left-right', to: '#' },
-            { label: 'Users', icon: 'i-heroicons-users', to: '/admin/users', show: () => user.value && ['admin', 'superadmin'].includes(user.value.role) },
+            { label: 'Users', icon: 'i-heroicons-users', to: '/admin/users', show: () => !!user.value },
+        ]
+    },
+    {
+        group: 'Settings',
+        items: [
+            { label: 'HOSxP Database', icon: 'i-heroicons-circle-stack', to: '/admin/external-db', show: () => !!user.value },
+            { label: 'General Settings', icon: 'i-heroicons-cog-6-tooth', to: '#' },
         ]
     }
-];
+]);
 
 const toggleSidebar = () => {
     isSidebarOpen.value = !isSidebarOpen.value;
