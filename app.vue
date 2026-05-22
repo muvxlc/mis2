@@ -27,9 +27,17 @@ useHead({
 
 const navigation = computed(() => [
     {
-        group: 'General',
+        group: 'HOSxP',
         items: [
-            { label: 'Dashboard', icon: 'i-heroicons-home', to: '/' },
+            { 
+                label: 'Dashboard', 
+                icon: 'i-heroicons-home', 
+                to: '/',
+                children: [
+                    { label: 'Overview', to: '/' },
+                    { label: 'Waiting', to: '/hosxp/waiting' }
+                ]
+            },
             { label: 'Widgets', icon: 'i-heroicons-squares-2x2', to: '#' },
         ]
     },
@@ -114,17 +122,32 @@ const toggleSidebar = () => {
                             <h4 class="px-4 text-[11px] font-bold text-gray-400 uppercase tracking-[2px] mb-4">{{ group.group }}</h4>
                             <div class="space-y-1">
                                 <template v-for="item in group.items" :key="item.label">
-                                    <NuxtLink 
-                                        v-if="!item.show || item.show()"
-                                        :to="item.to"
-                                        class="flex items-center gap-4 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group"
-                                        active-class="bg-[#24695c] text-white shadow-lg shadow-[#24695c]/20"
-                                        :class="[route.path === item.to ? '' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-[#24695c]']"
-                                    >
-                                        <UIcon :name="item.icon" class="w-5 h-5" />
-                                        <span>{{ item.label }}</span>
-                                        <UIcon v-if="item.to === '#'" name="i-heroicons-chevron-right" class="ml-auto w-4 h-4 opacity-50" />
-                                    </NuxtLink>
+                                    <div v-if="!item.show || item.show()" class="space-y-1">
+                                        <NuxtLink 
+                                            :to="item.to"
+                                            class="flex items-center gap-4 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group"
+                                            active-class="bg-[#24695c] text-white shadow-lg shadow-[#24695c]/20"
+                                            :class="[route.path === item.to || (item.children && item.children.some(c => route.path === c.to)) ? '' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-[#24695c]']"
+                                        >
+                                            <UIcon :name="item.icon" class="w-5 h-5" />
+                                            <span>{{ item.label }}</span>
+                                            <UIcon v-if="item.children" name="i-heroicons-chevron-down" class="ml-auto w-4 h-4 opacity-50" />
+                                            <UIcon v-else-if="item.to === '#'" name="i-heroicons-chevron-right" class="ml-auto w-4 h-4 opacity-50" />
+                                        </NuxtLink>
+
+                                        <!-- Submenu -->
+                                        <div v-if="item.children && (route.path === item.to || item.children.some(c => route.path === c.to))" class="ml-9 space-y-1 border-l-2 border-gray-100 dark:border-gray-800 pl-4 py-1">
+                                            <NuxtLink 
+                                                v-for="sub in item.children" 
+                                                :key="sub.label"
+                                                :to="sub.to"
+                                                class="block py-2 text-xs font-bold transition-colors"
+                                                :class="[route.path === sub.to ? 'text-[#24695c]' : 'text-gray-400 hover:text-[#24695c]']"
+                                            >
+                                                {{ sub.label }}
+                                            </NuxtLink>
+                                        </div>
+                                    </div>
                                 </template>
                             </div>
                         </div>
