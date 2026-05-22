@@ -1,6 +1,6 @@
 {
-  "name": "nuxt-base-stack",
-  "description": "Nuxt 4 base stack with Docker, MariaDB, Redis, Authentication, and User Management",
+  "name": "mis",
+  "description": "MIS with Docker, MariaDB, Redis, Authentication, and User Management",
   "private": true,
   "type": "module",
   "scripts": {
@@ -15,10 +15,10 @@
     "db:seed": "npx tsx server/scripts/seed.ts"
   },
   "dependencies": {
+    "@iconify-json/heroicons": "^1.2.3",
     "@nuxt/ui": "^4.6.0",
     "bcryptjs": "^3.0.2",
     "drizzle-orm": "^0.40.0",
-
     "jose": "^6.0.0",
     "mysql2": "^3.13.0",
     "nuxt": "^4.1.1",

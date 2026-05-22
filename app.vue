@@ -6,6 +6,9 @@ const isDark = computed({
 });
 
 const { user, logout } = useUser();
+const isSidebarOpen = ref(true);
+const route = useRoute();
+const isLoginPage = computed(() => route.path === '/login');
 
 useHead({
     link: [
@@ -21,98 +24,173 @@ useHead({
         },
     ],
 });
+
+const navigation = [
+    {
+        group: 'General',
+        items: [
+            { label: 'Dashboard', icon: 'i-heroicons-home', to: '/' },
+            { label: 'Widgets', icon: 'i-heroicons-squares-2x2', to: '#' },
+        ]
+    },
+    {
+        group: 'Applications',
+        items: [
+            { label: 'Project', icon: 'i-heroicons-briefcase', to: '#' },
+            { label: 'File Manager', icon: 'i-heroicons-folder', to: '#' },
+            { label: 'Kanban', icon: 'i-heroicons-view-columns', to: '#' },
+            { label: 'Ecommerce', icon: 'i-heroicons-shopping-cart', to: '#' },
+            { label: 'Email', icon: 'i-heroicons-envelope', to: '#' },
+            { label: 'Chat', icon: 'i-heroicons-chat-bubble-left-right', to: '#' },
+            { label: 'Users', icon: 'i-heroicons-users', to: '/admin/users', show: () => user.value && ['admin', 'superadmin'].includes(user.value.role) },
+        ]
+    }
+];
+
+const toggleSidebar = () => {
+    isSidebarOpen.value = !isSidebarOpen.value;
+};
 </script>
 
 <template>
     <UApp>
-        <div
-            class="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 font-thai"
-        >
-            <nav
-                class="border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 backdrop-blur p-4 sticky top-0 z-50"
+        <div class="flex min-h-screen bg-[#f5f7fb] dark:bg-gray-950 text-[#2c323f] dark:text-gray-100 font-thai">
+            <!-- Sidebar -->
+            <aside 
+                v-if="!isLoginPage"
+                :class="[
+                    'fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-900 shadow-xl transform transition-transform duration-300 lg:translate-x-0 lg:static lg:inset-0',
+                    isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+                ]"
             >
-                <div
-                    class="max-w-7xl mx-auto flex justify-between items-center"
-                >
-                    <div class="flex items-center gap-8">
-                        <NuxtLink
-                            to="/"
-                            class="text-xl font-bold text-primary flex items-center gap-2"
-                        >
-                            <UIcon
-                                name="i-heroicons-clipboard-document-check"
-                            />
-                            Nuxt Base Stack
+                <div class="flex flex-col h-full">
+                    <!-- Logo -->
+                    <div class="h-20 flex items-center px-8 border-b border-gray-100 dark:border-gray-800">
+                        <NuxtLink to="/" class="flex items-center gap-2">
+                            <div class="w-8 h-8 bg-[#24695c] rounded-lg flex items-center justify-center text-white font-bold">M</div>
+                            <span class="text-2xl font-bold tracking-tight text-[#24695c] dark:text-white">mis</span>
                         </NuxtLink>
+                    </div>
 
-                        <!-- Admin Navigation -->
-                        <div
-                            v-if="
-                                user &&
-                                (user.role === 'admin' ||
-                                    user.role === 'superadmin')
-                            "
-                            class="hidden md:flex items-center gap-4"
-                        >
-                            <NuxtLink
-                                to="/admin/users"
-                                class="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1"
-                            >
-                                <UIcon name="i-heroicons-users" />
-                                จัดการผู้ใช้
-                            </NuxtLink>
-
+                    <!-- Profile Section -->
+                    <div class="p-8 text-center border-b border-gray-100 dark:border-gray-800">
+                        <div class="relative inline-block">
+                            <UAvatar 
+                                :src="user?.avatar || 'https://github.com/benjamincanac.png'" 
+                                size="xl" 
+                                class="ring-4 ring-[#f5f7fb] dark:ring-gray-800"
+                            />
+                            <span class="absolute top-0 right-0 bg-[#ba895d] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase">New</span>
+                        </div>
+                        <h3 class="mt-4 font-bold text-lg">{{ user?.fullName || 'Emay Walter' }}</h3>
+                        <p class="text-xs text-gray-400 uppercase tracking-wider mt-1">{{ user?.agency || 'Human Resources Department' }}</p>
+                        
+                        <div class="flex justify-center gap-8 mt-6">
+                            <div>
+                                <div class="font-bold text-sm">7</div>
+                                <div class="text-[10px] text-gray-400 uppercase">Exp</div>
+                            </div>
+                            <div>
+                                <div class="font-bold text-sm">98</div>
+                                <div class="text-[10px] text-gray-400 uppercase">Bth</div>
+                            </div>
+                            <div>
+                                <div class="font-bold text-sm">2</div>
+                                <div class="text-[10px] text-gray-400 uppercase">Pic</div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="flex gap-4 items-center">
-                        <template v-if="user">
-                            <span
-                                class="text-sm text-gray-500 hidden sm:inline"
-                            >
-                                {{ user.fullName || user.username }} ({{
-                                    user.role
-                                }})
-                            </span>
-                            <UButton
-                                variant="ghost"
-                                color="gray"
-                                icon="i-heroicons-arrow-right-on-rectangle"
-                                @click="logout"
-                                aria-label="ออกจากระบบ"
-                            />
-                        </template>
-                        <template v-else>
-                            <UButton
-                                label="เข้าสู่ระบบ"
-                                to="/login"
-                                variant="ghost"
-                            />
-                        </template>
-
-                        <ClientOnly>
-                            <UButton
-                                :icon="
-                                    isDark
-                                        ? 'i-heroicons-moon'
-                                        : 'i-heroicons-sun'
-                                "
-                                color="gray"
-                                variant="ghost"
-                                @click="isDark = !isDark"
-                                aria-label="เปลี่ยนโหมดสี"
-                            />
-                            <template #fallback>
-                                <div class="w-8 h-8" />
-                            </template>
-                        </ClientOnly>
-                    </div>
+                    <!-- Navigation -->
+                    <nav class="flex-1 overflow-y-auto py-6 px-4 space-y-8">
+                        <div v-for="group in navigation" :key="group.group">
+                            <h4 class="px-4 text-[11px] font-bold text-gray-400 uppercase tracking-[2px] mb-4">{{ group.group }}</h4>
+                            <div class="space-y-1">
+                                <template v-for="item in group.items" :key="item.label">
+                                    <NuxtLink 
+                                        v-if="!item.show || item.show()"
+                                        :to="item.to"
+                                        class="flex items-center gap-4 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group"
+                                        active-class="bg-[#24695c] text-white shadow-lg shadow-[#24695c]/20"
+                                        :class="[route.path === item.to ? '' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-[#24695c]']"
+                                    >
+                                        <UIcon :name="item.icon" class="w-5 h-5" />
+                                        <span>{{ item.label }}</span>
+                                        <UIcon v-if="item.to === '#'" name="i-heroicons-chevron-right" class="ml-auto w-4 h-4 opacity-50" />
+                                    </NuxtLink>
+                                </template>
+                            </div>
+                        </div>
+                    </nav>
                 </div>
-            </nav>
+            </aside>
 
-            <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-                <NuxtPage />
-            </main>
+            <!-- Main Content -->
+            <div class="flex-1 flex flex-col min-w-0">
+                <!-- Navbar -->
+                <header 
+                    v-if="!isLoginPage"
+                    class="h-20 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between px-8 sticky top-0 z-40"
+                >
+                    <div class="flex items-center gap-6 flex-1">
+                        <UButton 
+                            icon="i-heroicons-bars-3-bottom-left" 
+                            variant="ghost" 
+                            color="gray" 
+                            @click="toggleSidebar"
+                            class="lg:hidden"
+                        />
+                        <div class="relative max-w-md w-full hidden md:block">
+                            <UIcon name="i-heroicons-magnifying-glass" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                            <input 
+                                type="text" 
+                                placeholder="Search here....." 
+                                class="w-full pl-12 pr-4 py-2.5 bg-[#f5f7fb] dark:bg-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-[#24695c]/20 transition-all"
+                            />
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <UButton icon="i-heroicons-arrows-pointing-out" variant="ghost" color="gray" class="hidden sm:flex" />
+                        <UButton icon="i-heroicons-language" variant="ghost" color="gray" class="hidden sm:flex" />
+                        <UButton icon="i-heroicons-star" variant="ghost" color="gray" class="hidden sm:flex" />
+                        <div class="relative">
+                            <UButton icon="i-heroicons-bell" variant="ghost" color="gray" />
+                            <span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-gray-900"></span>
+                        </div>
+                        <UButton 
+                            :icon="isDark ? 'i-heroicons-moon' : 'i-heroicons-sun'" 
+                            variant="ghost" 
+                            color="gray" 
+                            @click="isDark = !isDark" 
+                        />
+                        <UButton icon="i-heroicons-chat-bubble-left" variant="ghost" color="gray" />
+                        <div class="w-px h-6 bg-gray-100 dark:bg-gray-800 mx-2"></div>
+                        <UButton 
+                            icon="i-heroicons-arrow-right-on-rectangle" 
+                            variant="ghost" 
+                            color="gray" 
+                            @click="logout"
+                            label="Log out"
+                            class="font-bold text-[#24695c]"
+                        />
+                    </div>
+                </header>
+
+                <!-- Page Content -->
+                <main :class="['flex-1 overflow-auto', isLoginPage ? '' : 'p-8']">
+                    <div :class="[isLoginPage ? 'h-screen' : 'max-w-[1600px] mx-auto']">
+                        <NuxtPage />
+                    </div>
+                </main>
+            </div>
+
+            <!-- Mobile Overlay -->
+            <div 
+                v-if="isSidebarOpen && !isLoginPage" 
+                class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-40 lg:hidden"
+                @click="isSidebarOpen = false"
+            ></div>
         </div>
     </UApp>
 </template>
@@ -121,11 +199,35 @@ useHead({
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+:root {
+    --font-sans: "IBM Plex Sans Thai", sans-serif;
+}
+
 .font-thai {
     font-family: "IBM Plex Sans Thai", sans-serif;
 }
 
 body {
     font-family: "IBM Plex Sans Thai", sans-serif;
+    @apply bg-[#f5f7fb] dark:bg-gray-950;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: #e5e7eb;
+    border-radius: 10px;
+}
+.dark ::-webkit-scrollbar-thumb {
+    background: #374151;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #24695c;
 }
 </style>

@@ -1,4 +1,4 @@
-# Nuxt Base Stack
+# MIS
 
 โครงสร้างพื้นฐานสำหรับพัฒนา Web Application ด้วย Nuxt 4 พร้อม Docker, Database, และ Authentication
 
@@ -162,7 +162,7 @@ nuxt-base-stack/
 
 ## การใช้งานเป็น Base Project
 
-ในการเริ่ม project ใหม่จาก base stack นี้:
+ในการเริ่ม project ใหม่จาก MIS นี้:
 
 ```bash
 # 1. Clone this repo

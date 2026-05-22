@@ -12,8 +12,8 @@ export const getThaIDAuthUrl = () => {
     response_type: 'code',
     client_id: clientId,
     redirect_uri: redirectUri,
-    scope: 'openid pid name',
-    state: 'thaid_login' // Should ideally be random and verified in callback
+    scope: process.env.THAID_SCOPE || 'openid pid name',
+    state: 'thaid_login' 
   });
 
   return `${baseUrl}?${params.toString()}`;

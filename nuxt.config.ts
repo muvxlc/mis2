@@ -12,6 +12,10 @@ export default defineNuxtConfig({
     '@nuxt/eslint'
   ],
 
+  icon: {
+    serverBundle: 'local',
+  },
+
   ui: {
     colors: {
       primary: 'blue'
