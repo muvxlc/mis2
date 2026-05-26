@@ -151,7 +151,7 @@ export default defineEventHandler(async (event) => {
     const [hourlyScreen]: any[] = await extDb.execute(sql`
       SELECT 
           visit_hour,
-          COUNT(ov.vn) AS patient_count,
+          COUNT(vn) AS patient_count,
           ROUND(AVG(NULLIF(wait_screen_seconds, 0)) / 60, 2) AS avg_wait_minutes,
           ROUND(MAX(NULLIF(wait_screen_seconds, 0)) / 60, 2) AS max_wait_minutes
       FROM (
@@ -182,7 +182,7 @@ export default defineEventHandler(async (event) => {
     const [hourlyDoctor]: any[] = await extDb.execute(sql`
       SELECT 
           visit_hour,
-          COUNT(ov.vn) AS patient_count,
+          COUNT(vn) AS patient_count,
           ROUND(AVG(NULLIF(wait_doctor_seconds, 0)) / 60, 2) AS avg_wait_minutes,
           ROUND(MAX(NULLIF(wait_doctor_seconds, 0)) / 60, 2) AS max_wait_minutes
       FROM (
