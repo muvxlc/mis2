@@ -172,10 +172,10 @@ const peakVsNormalRatio = computed(() => {
                 <span class="text-xs font-black text-gray-700 dark:text-white uppercase tracking-wider">HOSxP Dynamic Filters (ตัวกรองข้อมูลพิเศษ)</span>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                <UCheckbox v-model="excludeWeekends" label="กรองจันทร์ - ศุกร์" color="teal" />
-                <UCheckbox v-model="excludeAppointed" label="ไม่เอาเคสผู้ป่วยนัด" color="teal" />
-                <UCheckbox v-model="excludeLab" label="ไม่เอาเคสส่ง Lab" color="teal" />
-                <UCheckbox v-model="excludeXray" label="ไม่เอาเคสส่ง X-Ray" color="teal" />
+                <UCheckbox v-model="excludeWeekends" label="กรองจันทร์ - ศุกร์" />
+                <UCheckbox v-model="excludeAppointed" label="ไม่เอาเคสผู้ป่วยนัด" />
+                <UCheckbox v-model="excludeLab" label="ไม่เอาเคสส่ง Lab" />
+                <UCheckbox v-model="excludeXray" label="ไม่เอาเคสส่ง X-Ray" />
             </div>
         </div>
 
