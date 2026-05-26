@@ -3,10 +3,27 @@ const today = new Date().toISOString().split('T')[0];
 const startDate = ref(today);
 const endDate = ref(today);
 
+// 6 ตัวกรอง Reactive อัจฉริยะสำหรับคัดกรองข้อมูลสถิติ HOSxP
+const excludeWeekends = ref(true);
+const excludeAppointed = ref(true);
+const excludeLab = ref(true);
+const excludeXray = ref(true);
+const excludeEmptyCC = ref(true);
+const requireMedication = ref(true);
+
 const { data: response, refresh, status } = await useAsyncData('waiting_stats', () => $fetch('/api/hosxp/waiting-time', {
-    params: { startDate: startDate.value, endDate: endDate.value }
+    params: { 
+        startDate: startDate.value, 
+        endDate: endDate.value,
+        excludeWeekends: excludeWeekends.value,
+        excludeAppointed: excludeAppointed.value,
+        excludeLab: excludeLab.value,
+        excludeXray: excludeXray.value,
+        excludeEmptyCC: excludeEmptyCC.value,
+        requireMedication: requireMedication.value
+    }
 }), {
-    watch: [startDate, endDate]
+    watch: [startDate, endDate, excludeWeekends, excludeAppointed, excludeLab, excludeXray, excludeEmptyCC, requireMedication]
 });
 
 const stats = computed(() => response.value?.stats);
@@ -150,6 +167,22 @@ const peakVsNormalRatio = computed(() => {
             <!-- Decorative background elements -->
             <div class="absolute -right-20 -top-20 w-80 h-80 bg-[#24695c]/5 rounded-full blur-3xl"></div>
             <div class="absolute -left-20 -bottom-20 w-64 h-64 bg-[#ba895d]/5 rounded-full blur-3xl"></div>
+        </div>
+
+        <!-- Dynamic Analytics Filters Panel -->
+        <div class="bg-white dark:bg-gray-900 rounded-[2.5rem] p-8 shadow-sm border border-gray-100 dark:border-gray-800 space-y-6">
+            <div class="flex items-center gap-3 border-b border-gray-50 dark:border-gray-800 pb-4">
+                <UIcon name="i-heroicons-adjustments-horizontal" class="text-[#24695c] text-2xl" />
+                <span class="text-xs font-black text-gray-700 dark:text-white uppercase tracking-wider">HOSxP Dynamic Filters (ตัวกรองข้อมูลพิเศษ)</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+                <UCheckbox v-model="excludeWeekends" label="กรองจันทร์ - ศุกร์" color="teal" />
+                <UCheckbox v-model="excludeAppointed" label="ไม่เอาเคสผู้ป่วยนัด" color="teal" />
+                <UCheckbox v-model="excludeLab" label="ไม่เอาเคสส่ง Lab" color="teal" />
+                <UCheckbox v-model="excludeXray" label="ไม่เอาเคสส่ง X-Ray" color="teal" />
+                <UCheckbox v-model="excludeEmptyCC" label="กรองเฉพาะเคสมี CC" color="teal" />
+                <UCheckbox v-model="requireMedication" label="กรองเฉพาะที่มีการสั่งยา" color="teal" />
+            </div>
         </div>
 
         <div v-if="stats" class="space-y-12">
