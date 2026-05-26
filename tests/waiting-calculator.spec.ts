@@ -139,6 +139,42 @@ describe('OPD 7 Waiting Calculator Utility Tests', () => {
       expect(filtered.length).toBe(2);
       expect(filtered.find(v => v.vn === '3')).toBeUndefined();
     });
+
+    it('should sanitize negative times to 0 and cap extreme outlier times to 480 minutes', () => {
+      const outlierVisit: PatientVisit = {
+        vn: '99',
+        vstdate: '2026-05-26',
+        vsttime: '08:00:00',
+        departmentname: 'จุดซักประวัติผู้ป่วยนอก',
+        visit_hour: 8,
+        wait_screen_m: -10,      // Negative outlier wait
+        screen_m: 26070,         // Giant outlier service
+        wait_doctor_m: 500,      // Outlier wait
+        doctor_m: -5,            // Negative service
+        wait_drug_m: 26070,       // Giant outlier drug wait
+        is_weekend: 0,
+        is_appointed: 0,
+        has_lab: 0,
+        has_xray: 0
+      };
+      
+      const filters = {
+        excludeWeekends: false,
+        excludeAppointed: false,
+        excludeLab: false,
+        excludeXray: false
+      };
+      
+      const filtered = filterVisits([outlierVisit], filters);
+      expect(filtered.length).toBe(1);
+      
+      const clean = filtered[0];
+      expect(clean.wait_screen_m).toBe(0);     // Negative becomes 0
+      expect(clean.screen_m).toBe(480);         // 26070 capped at 480
+      expect(clean.wait_doctor_m).toBe(480);    // 500 capped at 480
+      expect(clean.doctor_m).toBe(0);          // Negative becomes 0
+      expect(clean.wait_drug_m).toBe(480);      // 26070 capped at 480
+    });
   });
 
   describe('calculateStats() Aggregation Tests', () => {

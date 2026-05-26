@@ -46,6 +46,26 @@ export function formatMmSs(hms: string | null): string {
  */
 export function filterVisits(visits: PatientVisit[], filters: WaitingFilters): PatientVisit[] {
   let list = [...visits];
+
+  // Data Sanitization / Outlier Capping (ล้างข้อมูลและจำกัดเวลาผิดปกติ เช่น พนักงานลืมกดปิดเคส HOSxP ข้ามวัน)
+  // กำหนดให้เวลาของแต่ละขั้นตอนไม่น้อยกว่า 0 นาที และไม่เกิน 480 นาที (8 ชั่วโมง ซึ่งเป็นเวลาปฏิบัติงานสูงสุดต่อเวร)
+  list = list.map(v => {
+    const ws = v.wait_screen_m === null ? null : Math.max(0, Math.min(480, v.wait_screen_m));
+    const s = Math.max(0, Math.min(480, parseFloat(String(v.screen_m || 0))));
+    const wd = Math.max(0, Math.min(480, v.wait_doctor_m || 0));
+    const d = Math.max(0, Math.min(480, parseFloat(String(v.doctor_m || 0))));
+    const wrx = Math.max(0, Math.min(480, v.wait_drug_m || 0));
+
+    return {
+      ...v,
+      wait_screen_m: ws,
+      screen_m: s,
+      wait_doctor_m: wd,
+      doctor_m: d,
+      wait_drug_m: wrx
+    };
+  });
+
   if (filters.excludeWeekends) {
     list = list.filter(v => v.is_weekend === 0);
   }
