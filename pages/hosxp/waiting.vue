@@ -22,10 +22,24 @@ const { data: response, refresh, status } = await useAsyncData('waiting_stats', 
     watch: [startDate, endDate, excludeWeekends, excludeAppointed, excludeLab, excludeXray]
 });
 
-const stats = computed(() => response.value?.stats);
-const hourlyScreen = computed(() => response.value?.hourly_screen || []);
-const hourlyDoctor = computed(() => response.value?.hourly_doctor || []);
-const traffic = computed(() => response.value?.traffic || []);
+const rawVisits = computed(() => response.value?.visits || []);
+
+const filteredVisits = computed(() => {
+    let list = rawVisits.value;
+    if (excludeWeekends.value) {
+        list = list.filter(v => v.is_weekend === 0);
+    }
+    if (excludeAppointed.value) {
+        list = list.filter(v => v.is_appointed === 0);
+    }
+    if (excludeLab.value) {
+        list = list.filter(v => v.has_lab === 0);
+    }
+    if (excludeXray.value) {
+        list = list.filter(v => v.has_xray === 0);
+    }
+    return list;
+});
 
 const formatMmSs = (hms: string | null) => {
     if (!hms) return '00:00';
@@ -42,16 +56,159 @@ const getWidth = (val: number, max: number) => Math.min(100, (val / (max || 1)) 
 
 // Time slots 05:00 - 16:00
 const timeSlots = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
-const mapToSlots = (data: any[], key: string) => {
-    return timeSlots.map(hour => {
-        const found = data.find(d => parseInt(d[key]) === hour);
-        return found || { [key]: hour, patient_count: 0, avg_wait_minutes: 0, max_wait_minutes: 0 };
-    });
-};
 
-const displayHourlyScreen = computed(() => mapToSlots(hourlyScreen.value, 'visit_hour'));
-const displayHourlyDoctor = computed(() => mapToSlots(hourlyDoctor.value, 'visit_hour'));
-const displayTraffic = computed(() => mapToSlots(traffic.value, 'hour'));
+const displayHourlyScreen = computed(() => {
+    const list = filteredVisits.value;
+    return timeSlots.map(hour => {
+        const hourVisits = list.filter(v => v.visit_hour === hour && v.wait_screen_m !== null);
+        if (hourVisits.length === 0) {
+            return {
+                visit_hour: hour,
+                patient_count: 0,
+                avg_wait_minutes: 0,
+                max_wait_minutes: 0
+            };
+        }
+        const total = hourVisits.length;
+        const avg = hourVisits.reduce((acc, v) => acc + (v.wait_screen_m || 0), 0) / total;
+        const max = Math.max(...hourVisits.map(v => v.wait_screen_m || 0));
+        
+        return {
+            visit_hour: hour,
+            patient_count: total,
+            avg_wait_minutes: parseFloat(avg.toFixed(2)),
+            max_wait_minutes: parseFloat(max.toFixed(2))
+        };
+    });
+});
+
+const displayHourlyDoctor = computed(() => {
+    const list = filteredVisits.value;
+    return timeSlots.map(hour => {
+        const hourVisits = list.filter(v => v.visit_hour === hour && v.wait_doctor_m > 0);
+        if (hourVisits.length === 0) {
+            return {
+                visit_hour: hour,
+                patient_count: 0,
+                avg_wait_minutes: 0,
+                max_wait_minutes: 0
+            };
+        }
+        const total = hourVisits.length;
+        const avg = hourVisits.reduce((acc, v) => acc + (v.wait_doctor_m || 0), 0) / total;
+        const max = Math.max(...hourVisits.map(v => v.wait_doctor_m || 0));
+        
+        return {
+            visit_hour: hour,
+            patient_count: total,
+            avg_wait_minutes: parseFloat(avg.toFixed(2)),
+            max_wait_minutes: parseFloat(max.toFixed(2))
+        };
+    });
+});
+
+const displayTraffic = computed(() => {
+    const list = filteredVisits.value;
+    return timeSlots.map(hour => {
+        const hourVisits = list.filter(v => v.visit_hour === hour);
+        return {
+            hour: hour,
+            total: hourVisits.length
+        };
+    });
+});
+
+const stats = computed(() => {
+    const list = filteredVisits.value;
+    const total_patients = list.length;
+    
+    const uniqueDates = new Set(list.map(v => v.vstdate));
+    const day_cc = Math.max(1, uniqueDates.size);
+    
+    if (total_patients === 0) {
+        return {
+            departmentname: rawVisits.value[0]?.departmentname || 'จุดซักประวัติผู้ป่วยนอก',
+            'รอซักประวัติ': '00:00',
+            'ซักประวัติ': '00:00',
+            'รอตรวจ1': '00:00',
+            'รอตรวจ2': '00:00',
+            'แพทย์ตรวจ': '00:00',
+            'รอรับยา': '00:00',
+            'total_all': '00:00',
+            m_wait_screen: 0,
+            m_screen: 0,
+            m_wait_doc1: 0,
+            m_wait_doc2: 0,
+            m_doc_time: 0,
+            m_wait_rx: 0,
+            m_total_all: 0,
+            m_min_total: 0,
+            m_max_total: 0,
+            total_patients: 0,
+            kpi_pass_count: 0
+        };
+    }
+    
+    // 1. รอซักประวัติ
+    const sum_wait_screen = list.reduce((acc, v) => acc + (v.wait_screen_m || 0), 0);
+    const valid_wait_screen = list.filter(v => v.wait_screen_m !== null);
+    const avg_wait_screen = valid_wait_screen.length > 0 ? (valid_wait_screen.reduce((acc, v) => acc + v.wait_screen_m, 0) / valid_wait_screen.length) : 0;
+    const wait_screen_cc = avg_wait_screen > 0 ? Math.round((sum_wait_screen / day_cc) / avg_wait_screen) : 0;
+    
+    // 2. ซักประวัติ
+    const screen_cc = Math.round(list.reduce((acc, v) => acc + parseFloat(v.screen_m || 0), 0) / total_patients);
+    
+    // 3. รอตรวจ
+    const sum_wait_doctor = list.reduce((acc, v) => acc + (v.wait_doctor_m || 0), 0);
+    const valid_wait_doctor = list.filter(v => v.wait_doctor_m > 0);
+    const avg_wait_doctor = valid_wait_doctor.length > 0 ? (valid_wait_doctor.reduce((acc, v) => acc + v.wait_doctor_m, 0) / valid_wait_doctor.length) : 0;
+    const wait_doctor = avg_wait_doctor > 0 ? Math.round((sum_wait_doctor / day_cc) / avg_wait_doctor) : 0;
+    
+    // 4. แพทย์ตรวจ
+    const valid_doctor = list.filter(v => parseFloat(v.doctor_m || 0) > 0);
+    const doctor_cc = valid_doctor.length > 0 ? Math.round(valid_doctor.reduce((acc, v) => acc + parseFloat(v.doctor_m), 0) / valid_doctor.length) : 0;
+    
+    // 5. รอรับยา
+    const sum_wait_rx = list.reduce((acc, v) => acc + (v.wait_drug_m || 0), 0);
+    const valid_wait_rx = list.filter(v => v.wait_drug_m > 0);
+    const avg_wait_rx = valid_wait_rx.length > 0 ? (valid_wait_rx.reduce((acc, v) => acc + v.wait_drug_m, 0) / valid_wait_rx.length) : 0;
+    const wait_drug_cc = avg_wait_rx > 0 ? Math.round((sum_wait_rx / day_cc) / avg_wait_rx) : 0;
+    
+    // ผลรวมขั้นตอนเฉลี่ย
+    const total_wait = wait_screen_cc + screen_cc + wait_doctor + doctor_cc + wait_drug_cc;
+    
+    // คำนวณค่าน้อยสุด / มากสุด ของเวลารวมต่อคนไข้
+    const patientTotals = list.map(v => {
+        return (v.wait_screen_m || 0) + parseFloat(v.screen_m || 0) + (v.wait_doctor_m || 0) + parseFloat(v.doctor_m || 0) + (v.wait_drug_m || 0);
+    });
+    const m_min_total = Math.min(...patientTotals);
+    const m_max_total = Math.max(...patientTotals);
+    
+    // นับผู้ป่วยที่ใช้เวลารวม ≤ 60 นาที (KPI Pass)
+    const kpi_pass_count = patientTotals.filter(t => t <= 60).length;
+    
+    return {
+        departmentname: list[0]?.departmentname || 'จุดซักประวัติผู้ป่วยนอก',
+        'รอซักประวัติ': `${wait_screen_cc}:00`,
+        'ซักประวัติ': `${screen_cc}:00`,
+        'รอตรวจ1': `${wait_doctor}:00`,
+        'รอตรวจ2': '00:00',
+        'แพทย์ตรวจ': `${doctor_cc}:00`,
+        'รอรับยา': `${wait_drug_cc}:00`,
+        'total_all': `${total_wait}:00`,
+        m_wait_screen: wait_screen_cc,
+        m_screen: screen_cc,
+        m_wait_doc1: wait_doctor,
+        m_wait_doc2: 0,
+        m_doc_time: doctor_cc,
+        m_wait_rx: wait_drug_cc,
+        m_total_all: total_wait,
+        m_min_total: m_min_total,
+        m_max_total: m_max_total,
+        total_patients: total_patients,
+        kpi_pass_count: kpi_pass_count
+    };
+});
 
 const maxPatientsScreen = computed(() => Math.max(...displayHourlyScreen.value.map(h => h.patient_count), 10));
 const maxPatientsDoctor = computed(() => Math.max(...displayHourlyDoctor.value.map(h => h.patient_count), 10));
