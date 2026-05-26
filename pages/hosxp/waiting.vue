@@ -3,13 +3,11 @@ const today = new Date().toISOString().split('T')[0];
 const startDate = ref(today);
 const endDate = ref(today);
 
-// 6 ตัวกรอง Reactive อัจฉริยะสำหรับคัดกรองข้อมูลสถิติ HOSxP
-const excludeWeekends = ref(true);
-const excludeAppointed = ref(true);
-const excludeLab = ref(true);
-const excludeXray = ref(true);
-const excludeEmptyCC = ref(true);
-const requireMedication = ref(true);
+// 4 ตัวกรอง Reactive อัจฉริยะสำหรับคัดกรองข้อมูลสถิติ HOSxP (เริ่มต้นเป็น false เพื่อให้โหลดข้อมูลทั้งหมดก่อนเมื่อเข้าครั้งแรก)
+const excludeWeekends = ref(false);
+const excludeAppointed = ref(false);
+const excludeLab = ref(false);
+const excludeXray = ref(false);
 
 const { data: response, refresh, status } = await useAsyncData('waiting_stats', () => $fetch('/api/hosxp/waiting-time', {
     params: { 
@@ -18,12 +16,10 @@ const { data: response, refresh, status } = await useAsyncData('waiting_stats', 
         excludeWeekends: excludeWeekends.value,
         excludeAppointed: excludeAppointed.value,
         excludeLab: excludeLab.value,
-        excludeXray: excludeXray.value,
-        excludeEmptyCC: excludeEmptyCC.value,
-        requireMedication: requireMedication.value
+        excludeXray: excludeXray.value
     }
 }), {
-    watch: [startDate, endDate, excludeWeekends, excludeAppointed, excludeLab, excludeXray, excludeEmptyCC, requireMedication]
+    watch: [startDate, endDate, excludeWeekends, excludeAppointed, excludeLab, excludeXray]
 });
 
 const stats = computed(() => response.value?.stats);
@@ -175,13 +171,11 @@ const peakVsNormalRatio = computed(() => {
                 <UIcon name="i-heroicons-adjustments-horizontal" class="text-[#24695c] text-2xl" />
                 <span class="text-xs font-black text-gray-700 dark:text-white uppercase tracking-wider">HOSxP Dynamic Filters (ตัวกรองข้อมูลพิเศษ)</span>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 <UCheckbox v-model="excludeWeekends" label="กรองจันทร์ - ศุกร์" color="teal" />
                 <UCheckbox v-model="excludeAppointed" label="ไม่เอาเคสผู้ป่วยนัด" color="teal" />
                 <UCheckbox v-model="excludeLab" label="ไม่เอาเคสส่ง Lab" color="teal" />
                 <UCheckbox v-model="excludeXray" label="ไม่เอาเคสส่ง X-Ray" color="teal" />
-                <UCheckbox v-model="excludeEmptyCC" label="กรองเฉพาะเคสมี CC" color="teal" />
-                <UCheckbox v-model="requireMedication" label="กรองเฉพาะที่มีการสั่งยา" color="teal" />
             </div>
         </div>
 

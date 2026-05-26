@@ -13,8 +13,6 @@ export default defineEventHandler(async (event) => {
   const excludeAppointed = query.excludeAppointed === 'true';
   const excludeLab = query.excludeLab === 'true';
   const excludeXray = query.excludeXray === 'true';
-  const excludeEmptyCC = query.excludeEmptyCC === 'true';
-  const requireMedication = query.requireMedication === 'true';
 
   const dateTimeStart = `${startDate} 08:00:00`;
   const dateTimeEnd = `${endDate} 16:00:00`;
@@ -50,12 +48,6 @@ export default defineEventHandler(async (event) => {
     if (excludeWeekends) {
       filterConditions += ` AND DAYOFWEEK(o.vstdate) NOT IN (1, 7)`;
     }
-    if (excludeEmptyCC) {
-      filterConditions += ` AND os.cc IS NOT NULL AND os.cc <> ''`;
-    }
-    if (requireMedication) {
-      filterConditions += ` AND EXISTS (SELECT 1 FROM opitemrece op WHERE op.vn = o.vn AND op.icode LIKE '1%')`;
-    }
     if (excludeAppointed) {
       filterConditions += ` AND NOT EXISTS (SELECT 1 FROM oapp oa WHERE oa.visit_vn = o.vn AND oa.nextdate = o.vstdate)`;
     }
@@ -70,12 +62,6 @@ export default defineEventHandler(async (event) => {
     let subFilters = '';
     if (excludeWeekends) {
       subFilters += ` AND DAYOFWEEK(ov.vstdate) NOT IN (1, 7)`;
-    }
-    if (excludeEmptyCC) {
-      subFilters += ` AND os.cc IS NOT NULL AND os.cc <> ''`;
-    }
-    if (requireMedication) {
-      subFilters += ` AND EXISTS (SELECT 1 FROM opitemrece op WHERE op.vn = ov.vn AND op.icode LIKE '1%')`;
     }
     if (excludeAppointed) {
       subFilters += ` AND NOT EXISTS (SELECT 1 FROM oapp oa WHERE oa.visit_vn = ov.vn AND oa.nextdate = ov.vstdate)`;
