@@ -2,8 +2,9 @@
 const { user } = useUser();
 
 // Fetch HOSxP Data
-const { data: hosxpData, refresh: refreshCount } = await useAsyncData('hosxp_stats', () => $fetch('/api/hosxp/patient-count'));
+const { data: hosxpStats, refresh: refreshCount } = await useAsyncData('hosxp_stats', () => $fetch('/api/hosxp/patient-stats'));
 const { data: visitData, refresh: refreshOverview } = await useAsyncData('hosxp_visits', () => $fetch('/api/hosxp/visit-overview'));
+const { data: clinicData, refresh: refreshClinics } = await useAsyncData('hosxp_clinics', () => $fetch('/api/hosxp/clinic-stats'));
 
 // Calculate max for chart scaling
 const maxVisits = computed(() => {
@@ -101,35 +102,96 @@ const activities = [
                 </div>
             </div>
 
-            <!-- Row 2 -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- Row 2: Patient Stats Breakdown -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- OPD Card -->
                 <div class="bg-white dark:bg-gray-900 rounded-[2rem] p-8 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center gap-6 group hover:shadow-xl hover:shadow-[#24695c]/5 transition-all duration-300">
                     <div class="w-16 h-16 bg-[#e0f2f1] dark:bg-[#1a4d43]/30 rounded-2xl flex items-center justify-center text-[#24695c] text-3xl group-hover:scale-110 transition-transform">
-                        <UIcon name="i-heroicons-users" />
+                        <UIcon name="i-heroicons-user-group" />
                     </div>
                     <div>
-                        <div class="text-gray-400 text-sm font-bold uppercase tracking-wider">ผู้รับบริการวันนี้</div>
+                        <div class="text-gray-400 text-sm font-bold uppercase tracking-wider">ผู้รับบริการ OPD</div>
                         <div class="text-3xl font-black text-[#2c323f] dark:text-white mt-1">
-                            {{ hosxpData?.status === 'success' ? hosxpData.count.toLocaleString() : '...' }}
+                            {{ hosxpStats?.status === 'success' ? hosxpStats.opd.toLocaleString() : '...' }}
                         </div>
-                    </div>
-                    <div v-if="hosxpData?.status === 'success'" class="ml-auto text-green-500 font-bold flex items-center gap-1">
-                        <UIcon name="i-heroicons-arrow-trending-up" />
-                        <span>จาก HOSxP</span>
+                        <div class="text-[10px] text-gray-400 font-bold mt-1">Visit วันนี้</div>
                     </div>
                 </div>
-                <div class="bg-white dark:bg-gray-900 rounded-[2rem] p-8 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center gap-6">
-                    <div class="w-16 h-16 bg-[#f5f7fb] dark:bg-gray-800 rounded-2xl flex items-center justify-center text-2xl">⚽</div>
-                    <div>
-                        <div class="text-gray-400 text-sm font-bold uppercase tracking-wider">Sales</div>
-                        <div class="text-2xl font-bold mt-1">4,200</div>
+
+                <!-- IPD WARD Card -->
+                <div class="bg-white dark:bg-gray-900 rounded-[2rem] p-8 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center gap-6 group hover:shadow-xl hover:shadow-[#ba895d]/5 transition-all duration-300">
+                    <div class="w-16 h-16 bg-[#fff8e1] dark:bg-[#ba895d]/20 rounded-2xl flex items-center justify-center text-[#ba895d] text-3xl group-hover:scale-110 transition-transform">
+                        <UIcon name="i-heroicons-building-office-2" />
                     </div>
-                    <div class="ml-auto text-red-500 font-bold">-20%</div>
+                    <div>
+                        <div class="text-gray-400 text-sm font-bold uppercase tracking-wider">ผู้รับบริการ WARD</div>
+                        <div class="text-3xl font-black text-[#2c323f] dark:text-white mt-1">
+                            {{ hosxpStats?.status === 'success' ? hosxpStats.ipd_ward.toLocaleString() : '...' }}
+                        </div>
+                        <div class="text-[10px] text-gray-400 font-bold mt-1">Admit ใหม่วันนี้</div>
+                    </div>
+                </div>
+
+                <!-- IPD LR Card -->
+                <div class="bg-white dark:bg-gray-900 rounded-[2rem] p-8 shadow-sm border border-gray-100 dark:border-gray-800 flex items-center gap-6 group hover:shadow-xl hover:shadow-blue-500/5 transition-all duration-300">
+                    <div class="w-16 h-16 bg-blue-50 dark:bg-blue-500/20 rounded-2xl flex items-center justify-center text-blue-600 text-3xl group-hover:scale-110 transition-transform">
+                        <UIcon name="i-heroicons-heart" />
+                    </div>
+                    <div>
+                        <div class="text-gray-400 text-sm font-bold uppercase tracking-wider">ผู้รับบริการ LR</div>
+                        <div class="text-3xl font-black text-[#2c323f] dark:text-white mt-1">
+                            {{ hosxpStats?.status === 'success' ? hosxpStats.ipd_lr.toLocaleString() : '...' }}
+                        </div>
+                        <div class="text-[10px] text-gray-400 font-bold mt-1">Admit ใหม่วันนี้</div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Row 3 -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Row 3: Clinic Stats (Full Width) -->
+            <div class="grid grid-cols-1 gap-8">
+                <div class="bg-white dark:bg-gray-900 rounded-[2rem] p-8 shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col">
+                    <div class="flex items-center justify-between mb-8">
+                        <div>
+                            <h3 class="text-xl font-bold">ผู้รับบริการแยกตามห้องตรวจ</h3>
+                            <p class="text-xs text-gray-400 mt-1">สรุปจำนวนผู้มาใช้บริการแยกตามแผนก/ห้องตรวจในวันนี้</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <UBadge color="emerald" variant="subtle" class="font-bold">
+                                Real-timeจาก HOSxP
+                            </UBadge>
+                            <UButton icon="i-heroicons-arrow-path" variant="ghost" color="gray" @click="refreshClinics" />
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pr-2">
+                        <template v-if="clinicData?.status === 'success' && clinicData.clinics.length > 0">
+                            <div v-for="clinic in clinicData.clinics" :key="clinic.clinic_name" class="flex flex-col p-6 rounded-[1.5rem] bg-[#f5f7fb] dark:bg-gray-800/50 group hover:bg-[#24695c] hover:shadow-xl hover:shadow-[#24695c]/20 transition-all duration-300">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="w-10 h-10 rounded-xl bg-white dark:bg-gray-700 flex items-center justify-center text-[#24695c] group-hover:text-[#24695c] group-hover:bg-white transition-all">
+                                        <UIcon name="i-heroicons-building-library" class="w-5 h-5" />
+                                    </div>
+                                    <div class="flex items-center gap-1">
+                                        <span class="text-2xl font-black text-[#2c323f] dark:text-white group-hover:text-white transition-colors">{{ clinic.total.toLocaleString() }}</span>
+                                        <span class="text-[10px] text-gray-400 font-bold uppercase group-hover:text-white/70">คน</span>
+                                    </div>
+                                </div>
+                                <span class="text-sm font-bold text-[#2c323f] dark:text-white group-hover:text-white transition-colors truncate" :title="clinic.clinic_name">
+                                    {{ clinic.clinic_name || 'ไม่ระบุห้องตรวจ' }}
+                                </span>
+                            </div>
+                        </template>
+                        <template v-else-if="clinicData?.status === 'success'">
+                            <div class="col-span-full text-center py-20 text-gray-400 italic bg-[#f5f7fb] dark:bg-gray-800/30 rounded-[2rem]">ไม่มีข้อมูลผู้รับบริการในวันนี้</div>
+                        </template>
+                        <template v-else>
+                            <div v-for="i in 8" :key="i" class="h-32 w-full bg-gray-50 dark:bg-gray-800 rounded-[1.5rem] animate-pulse"></div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row 4: Overview Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <!-- Growth Overview -->
                 <div class="bg-white dark:bg-gray-900 rounded-[2rem] p-8 shadow-sm border border-gray-100 dark:border-gray-800">
                     <h3 class="text-xl font-bold mb-8">Growth Overview</h3>
@@ -167,9 +229,12 @@ const activities = [
                         </div>
                     </div>
                 </div>
+            </div>
 
+            <!-- Row 5: User Activations & Other -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 <!-- User Activations -->
-                <div class="bg-white dark:bg-gray-900 rounded-[2rem] p-8 shadow-sm border border-gray-100 dark:border-gray-800">
+                <div class="lg:col-span-12 bg-white dark:bg-gray-900 rounded-[2rem] p-8 shadow-sm border border-gray-100 dark:border-gray-800">
                     <h3 class="text-xl font-bold mb-8">User Activations</h3>
                     <div class="h-48 flex items-end gap-3">
                         <div v-for="i in 7" :key="i" class="flex-1 bg-[#ba895d]/20 rounded-t-lg relative group" :style="{ height: Math.random() * 80 + 20 + '%' }">
@@ -182,7 +247,7 @@ const activities = [
                 </div>
             </div>
 
-            <!-- Row 4 -->
+            <!-- Row 6 -->
             <div class="bg-white dark:bg-gray-900 rounded-[2rem] p-8 shadow-sm border border-gray-100 dark:border-gray-800">
                 <div class="flex items-center justify-between mb-8">
                     <h3 class="text-xl font-bold">Recent Orders</h3>

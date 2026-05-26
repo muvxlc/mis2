@@ -47,7 +47,7 @@ services:
     networks:
       - mis-network
 
-  # Nuxt App
+  # Nuxt App (Production)
   app:
     build:
       context: .
@@ -85,6 +85,43 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    networks:
+      - mis-network
+
+  # Nuxt App (Development with Hot Reload)
+  dev:
+    image: node:22-alpine
+    container_name: mis-app-dev
+    working_dir: /app
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      WATCHPACK_POLLING: "true" # Important for Docker on Windows/Mac
+      # Database
+      DATABASE_URL: mysql://${MYSQL_USER:-mis_user}:${MYSQL_PASSWORD:-mis_password}@mariadb:3306/${MYSQL_DATABASE:-mis_db}
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redispassword}
+      # JWT
+      JWT_SECRET: ${JWT_SECRET}
+      # ThaiID OAuth
+      THAID_CLIENT_ID: ${THAID_CLIENT_ID}
+      THAID_CLIENT_SECRET: ${THAID_CLIENT_SECRET}
+      THAID_REDIRECT_URI: ${THAID_CALLBACK_URL:-${THAID_REDIRECT_URI:-http://localhost:3000/api/auth/thaid/callback}}
+      THAID_SCOPE: ${THAID_SCOPE:-openid pid name}
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.nuxt
+    command: sh -c "npm install && npm run dev"
     networks:
       - mis-network
 
