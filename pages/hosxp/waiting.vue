@@ -3,6 +3,11 @@ const today = new Date().toISOString().split('T')[0];
 const startDate = ref(today);
 const endDate = ref(today);
 
+// การสลับช่วงเวลาสำหรับใช้วิเคราะห์ปัญหา (ดีฟอลต์เป็น standard 08:00 - 16:00)
+const analysisPeriod = ref('standard'); // 'standard' | 'early'
+const startTime = computed(() => analysisPeriod.value === 'early' ? '05:00:00' : '08:00:00');
+const endTime = computed(() => '16:00:00');
+
 // 4 ตัวกรอง Reactive อัจฉริยะสำหรับคัดกรองข้อมูลสถิติ HOSxP (เริ่มต้นเป็น false เพื่อให้โหลดข้อมูลทั้งหมดก่อนเมื่อเข้าครั้งแรก)
 const excludeWeekends = ref(false);
 const excludeAppointed = ref(false);
@@ -13,13 +18,15 @@ const { data: response, refresh, status } = await useAsyncData('waiting_stats', 
     params: { 
         startDate: startDate.value, 
         endDate: endDate.value,
+        startTime: startTime.value,
+        endTime: endTime.value,
         excludeWeekends: excludeWeekends.value,
         excludeAppointed: excludeAppointed.value,
         excludeLab: excludeLab.value,
         excludeXray: excludeXray.value
     }
 }), {
-    watch: [startDate, endDate, excludeWeekends, excludeAppointed, excludeLab, excludeXray]
+    watch: [startDate, endDate, startTime, endTime, excludeWeekends, excludeAppointed, excludeLab, excludeXray]
 });
 
 const rawVisits = computed(() => response.value?.visits || []);
@@ -140,21 +147,27 @@ const peakVsNormalRatio = computed(() => {
                 </div>
             </div>
 
-            <div class="flex flex-col sm:flex-row gap-4 p-5 bg-[#f5f7fb] dark:bg-gray-800/50 rounded-[2.5rem] border-2 border-white dark:border-gray-700 shadow-xl shadow-gray-200/50 dark:shadow-none z-10">
-                <div class="flex flex-col px-6">
-                    <span class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Date Range Start</span>
-                    <input v-model="startDate" type="date" class="bg-transparent border-none font-black text-[#2c323f] dark:text-white focus:ring-0 outline-none text-sm" />
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 p-5 bg-[#f5f7fb] dark:bg-gray-800/50 rounded-[2.5rem] border-2 border-white dark:border-gray-700 shadow-xl shadow-gray-200/50 dark:shadow-none z-10 w-full items-stretch">
+                <div class="flex flex-col px-6 py-3 bg-white dark:bg-gray-900/40 rounded-2xl border border-gray-100 dark:border-gray-800/80">
+                    <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Date Range Start</span>
+                    <input v-model="startDate" type="date" class="bg-transparent border-none font-black text-[#2c323f] dark:text-white focus:ring-0 outline-none text-sm p-0 w-full" />
                 </div>
-                <div class="hidden sm:block w-px bg-gray-200 dark:bg-gray-700 h-10 self-center"></div>
-                <div class="flex flex-col px-6">
-                    <span class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Date Range End</span>
-                    <input v-model="endDate" type="date" class="bg-transparent border-none font-black text-[#2c323f] dark:text-white focus:ring-0 outline-none text-sm" />
+                <div class="flex flex-col px-6 py-3 bg-white dark:bg-gray-900/40 rounded-2xl border border-gray-100 dark:border-gray-800/80">
+                    <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Date Range End</span>
+                    <input v-model="endDate" type="date" class="bg-transparent border-none font-black text-[#2c323f] dark:text-white focus:ring-0 outline-none text-sm p-0 w-full" />
+                </div>
+                <div class="flex flex-col px-6 py-3 bg-white dark:bg-gray-900/40 rounded-2xl border border-gray-100 dark:border-gray-800/80 justify-center">
+                    <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Analysis Period (ช่วงเวลากรอง)</span>
+                    <select v-model="analysisPeriod" class="bg-transparent border-none font-black text-[#2c323f] dark:text-white focus:ring-0 outline-none text-sm cursor-pointer pr-8 py-0 w-full">
+                        <option value="standard" class="dark:bg-gray-900 text-gray-800 dark:text-white">08:00 - 16:00 (เวลามาตรฐาน)</option>
+                        <option value="early" class="dark:bg-gray-900 text-gray-800 dark:text-white">05:00 - 16:00 (วิเคราะห์เคสเช้าตรู่)</option>
+                    </select>
                 </div>
                 <UButton 
                     icon="i-heroicons-arrow-path" 
                     @click="refresh" 
                     :loading="status === 'pending'"
-                    class="bg-[#24695c] hover:bg-[#1a4d43] text-white rounded-[1.2rem] px-8 font-black shadow-xl shadow-[#24695c]/30 h-14"
+                    class="bg-[#24695c] hover:bg-[#1a4d43] text-white rounded-2xl px-8 font-black shadow-xl shadow-[#24695c]/30 h-14 justify-center"
                 >
                     ANALYZE
                 </UButton>
@@ -167,7 +180,7 @@ const peakVsNormalRatio = computed(() => {
 
         <!-- Dynamic Analytics Filters Panel -->
         <div class="bg-white dark:bg-gray-900 rounded-[2.5rem] p-8 shadow-sm border border-gray-100 dark:border-gray-800 space-y-6">
-            <div class="flex items-center justify-between border-b border-gray-50 dark:border-gray-800 pb-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-50 dark:border-gray-800 pb-4">
                 <div class="flex items-center gap-3">
                     <UIcon name="i-heroicons-adjustments-horizontal" class="text-[#24695c] text-2xl" />
                     <span class="text-xs font-black text-gray-700 dark:text-white uppercase tracking-wider">HOSxP Dynamic Filters (ตัวกรองข้อมูลพิเศษ)</span>

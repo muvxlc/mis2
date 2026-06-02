@@ -14,8 +14,10 @@ export default defineEventHandler(async (event) => {
   const query = getQuery(event);
   const startDate = query.startDate as string || new Date().toISOString().split('T')[0];
   const endDate = query.endDate as string || new Date().toISOString().split('T')[0];
+  const startTime = query.startTime as string || '08:00:00';
+  const endTime = query.endTime as string || '16:00:00';
 
-  const cacheKey = `${startDate}_${endDate}`;
+  const cacheKey = `${startDate}_${endDate}_${startTime}_${endTime}`;
   const now = Date.now();
 
   // 1. Check Server-Side Cache
@@ -29,8 +31,8 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const dateTimeStart = `${startDate} 08:00:00`;
-  const dateTimeEnd = `${endDate} 16:00:00`;
+  const dateTimeStart = `${startDate} ${startTime}`;
+  const dateTimeEnd = `${endDate} ${endTime}`;
 
   try {
     // 2. Fetch HOSxP Connection Config
@@ -58,7 +60,7 @@ export default defineEventHandler(async (event) => {
     });
 
     // 4. Query Raw Patient Visits with calculated time segments and filter flags
-    console.log(`[Waiting-Time-API] Querying HOSxP database for raw visits: ${startDate} to ${endDate}`);
+    console.log(`[Waiting-Time-API] Querying HOSxP database for raw visits: ${startDate} to ${endDate} (${startTime} to ${endTime})`);
     const [visits]: any[] = await extDb.execute(sql`
       SELECT 
         o.vn,
@@ -90,7 +92,7 @@ export default defineEventHandler(async (event) => {
         WHERE CONCAT(o.vstdate, ' ', o.vsttime) BETWEEN ${dateTimeStart} AND ${dateTimeEnd} 
           AND o.main_dep = '010'
           AND o.spclty = '01'
-          AND o.vsttime BETWEEN '08:00:00' AND '16:00:00'
+          AND o.vsttime BETWEEN ${startTime} AND ${endTime}
       ) o
       JOIN 
         ovst_service_time t1 ON t1.vn = o.vn AND t1.ovst_service_time_type_code = 'OPD-NEW-VISIT'
