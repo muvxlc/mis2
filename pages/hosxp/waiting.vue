@@ -3,42 +3,62 @@ const today = new Date().toISOString().split('T')[0];
 const startDate = ref(today);
 const endDate = ref(today);
 
+// การสลับช่วงเวลาสำหรับใช้วิเคราะห์ปัญหา (ดีฟอลต์เป็น standard 08:00 - 16:00)
+const analysisPeriod = ref('standard'); // 'standard' | 'early'
+const startTime = computed(() => analysisPeriod.value === 'early' ? '05:00:00' : '08:00:00');
+const endTime = computed(() => '16:00:00');
+
+// 4 ตัวกรอง Reactive อัจฉริยะสำหรับคัดกรองข้อมูลสถิติ HOSxP (เริ่มต้นเป็น false เพื่อให้โหลดข้อมูลทั้งหมดก่อนเมื่อเข้าครั้งแรก)
+const excludeWeekends = ref(false);
+const excludeAppointed = ref(false);
+const excludeLab = ref(false);
+const excludeXray = ref(false);
+
 const { data: response, refresh, status } = await useAsyncData('waiting_stats', () => $fetch('/api/hosxp/waiting-time', {
-    params: { startDate: startDate.value, endDate: endDate.value }
+    params: { 
+        startDate: startDate.value, 
+        endDate: endDate.value,
+        startTime: startTime.value,
+        endTime: endTime.value,
+        excludeWeekends: excludeWeekends.value,
+        excludeAppointed: excludeAppointed.value,
+        excludeLab: excludeLab.value,
+        excludeXray: excludeXray.value
+    }
 }), {
-    watch: [startDate, endDate]
+    watch: [startDate, endDate, startTime, endTime, excludeWeekends, excludeAppointed, excludeLab, excludeXray]
 });
 
-const stats = computed(() => response.value?.stats);
-const hourlyScreen = computed(() => response.value?.hourly_screen || []);
-const hourlyDoctor = computed(() => response.value?.hourly_doctor || []);
-const traffic = computed(() => response.value?.traffic || []);
+const rawVisits = computed(() => response.value?.visits || []);
 
-const formatMmSs = (hms: string | null) => {
-    if (!hms) return '00:00';
-    const parts = hms.split(':');
-    if (parts.length < 3) return hms;
-    const h = parseInt(parts[0] || '0');
-    const m = parseInt(parts[1] || '0');
-    const s = parseInt(parts[2] || '0');
-    const totalM = (h * 60) + m;
-    return `${totalM.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-};
+// กรองรายเคสผู้ป่วยแบบ Reactive ฝั่งไคลเอนต์ (ตอบสนองไว 0ms)
+const filteredVisits = computed(() => {
+    return filterVisits(rawVisits.value, {
+        excludeWeekends: excludeWeekends.value,
+        excludeAppointed: excludeAppointed.value,
+        excludeLab: excludeLab.value,
+        excludeXray: excludeXray.value
+    });
+});
 
 const getWidth = (val: number, max: number) => Math.min(100, (val / (max || 1)) * 100) + '%';
 
-// Time slots 05:00 - 16:00
+// ช็อตช่วงเวลาสำหรับการทำงาน
 const timeSlots = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
-const mapToSlots = (data: any[], key: string) => {
-    return timeSlots.map(hour => {
-        const found = data.find(d => parseInt(d[key]) === hour);
-        return found || { [key]: hour, patient_count: 0, avg_wait_minutes: 0, max_wait_minutes: 0 };
-    });
-};
 
-const displayHourlyScreen = computed(() => mapToSlots(hourlyScreen.value, 'visit_hour'));
-const displayHourlyDoctor = computed(() => mapToSlots(hourlyDoctor.value, 'visit_hour'));
-const displayTraffic = computed(() => mapToSlots(traffic.value, 'hour'));
+// คำนวณสดในเบราว์เซอร์จากผู้ป่วยที่คัดแยกแล้ว
+const displayHourlyScreen = computed(() => calculateHourlyScreen(filteredVisits.value, timeSlots));
+const displayHourlyDoctor = computed(() => calculateHourlyDoctor(filteredVisits.value, timeSlots));
+const displayTraffic = computed(() => calculateTraffic(filteredVisits.value, timeSlots));
+const stats = computed(() => calculateStats(filteredVisits.value));
+
+// ตัวจัดทริกเกอร์เลือกทั้งหมด / ล้างทั้งหมด
+const setAllFilters = (val: boolean) => {
+    excludeWeekends.value = val;
+    excludeAppointed.value = val;
+    excludeLab.value = val;
+    excludeXray.value = val;
+};
 
 const maxPatientsScreen = computed(() => Math.max(...displayHourlyScreen.value.map(h => h.patient_count), 10));
 const maxPatientsDoctor = computed(() => Math.max(...displayHourlyDoctor.value.map(h => h.patient_count), 10));
@@ -127,21 +147,27 @@ const peakVsNormalRatio = computed(() => {
                 </div>
             </div>
 
-            <div class="flex flex-col sm:flex-row gap-4 p-5 bg-[#f5f7fb] dark:bg-gray-800/50 rounded-[2.5rem] border-2 border-white dark:border-gray-700 shadow-xl shadow-gray-200/50 dark:shadow-none z-10">
-                <div class="flex flex-col px-6">
-                    <span class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Date Range Start</span>
-                    <input v-model="startDate" type="date" class="bg-transparent border-none font-black text-[#2c323f] dark:text-white focus:ring-0 outline-none text-sm" />
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 p-5 bg-[#f5f7fb] dark:bg-gray-800/50 rounded-[2.5rem] border-2 border-white dark:border-gray-700 shadow-xl shadow-gray-200/50 dark:shadow-none z-10 w-full items-stretch">
+                <div class="flex flex-col px-6 py-3 bg-white dark:bg-gray-900/40 rounded-2xl border border-gray-100 dark:border-gray-800/80">
+                    <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Date Range Start</span>
+                    <input v-model="startDate" type="date" class="bg-transparent border-none font-black text-[#2c323f] dark:text-white focus:ring-0 outline-none text-sm p-0 w-full" />
                 </div>
-                <div class="hidden sm:block w-px bg-gray-200 dark:bg-gray-700 h-10 self-center"></div>
-                <div class="flex flex-col px-6">
-                    <span class="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Date Range End</span>
-                    <input v-model="endDate" type="date" class="bg-transparent border-none font-black text-[#2c323f] dark:text-white focus:ring-0 outline-none text-sm" />
+                <div class="flex flex-col px-6 py-3 bg-white dark:bg-gray-900/40 rounded-2xl border border-gray-100 dark:border-gray-800/80">
+                    <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Date Range End</span>
+                    <input v-model="endDate" type="date" class="bg-transparent border-none font-black text-[#2c323f] dark:text-white focus:ring-0 outline-none text-sm p-0 w-full" />
+                </div>
+                <div class="flex flex-col px-6 py-3 bg-white dark:bg-gray-900/40 rounded-2xl border border-gray-100 dark:border-gray-800/80 justify-center">
+                    <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Analysis Period (ช่วงเวลากรอง)</span>
+                    <select v-model="analysisPeriod" class="bg-transparent border-none font-black text-[#2c323f] dark:text-white focus:ring-0 outline-none text-sm cursor-pointer pr-8 py-0 w-full">
+                        <option value="standard" class="dark:bg-gray-900 text-gray-800 dark:text-white">08:00 - 16:00 (เวลามาตรฐาน)</option>
+                        <option value="early" class="dark:bg-gray-900 text-gray-800 dark:text-white">05:00 - 16:00 (วิเคราะห์เคสเช้าตรู่)</option>
+                    </select>
                 </div>
                 <UButton 
                     icon="i-heroicons-arrow-path" 
                     @click="refresh" 
                     :loading="status === 'pending'"
-                    class="bg-[#24695c] hover:bg-[#1a4d43] text-white rounded-[1.2rem] px-8 font-black shadow-xl shadow-[#24695c]/30 h-14"
+                    class="bg-[#24695c] hover:bg-[#1a4d43] text-white rounded-2xl px-8 font-black shadow-xl shadow-[#24695c]/30 h-14 justify-center"
                 >
                     ANALYZE
                 </UButton>
@@ -150,6 +176,42 @@ const peakVsNormalRatio = computed(() => {
             <!-- Decorative background elements -->
             <div class="absolute -right-20 -top-20 w-80 h-80 bg-[#24695c]/5 rounded-full blur-3xl"></div>
             <div class="absolute -left-20 -bottom-20 w-64 h-64 bg-[#ba895d]/5 rounded-full blur-3xl"></div>
+        </div>
+
+        <!-- Dynamic Analytics Filters Panel -->
+        <div class="bg-white dark:bg-gray-900 rounded-[2.5rem] p-8 shadow-sm border border-gray-100 dark:border-gray-800 space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-50 dark:border-gray-800 pb-4">
+                <div class="flex items-center gap-3">
+                    <UIcon name="i-heroicons-adjustments-horizontal" class="text-[#24695c] text-2xl" />
+                    <span class="text-xs font-black text-gray-700 dark:text-white uppercase tracking-wider">HOSxP Dynamic Filters (ตัวกรองข้อมูลพิเศษ)</span>
+                </div>
+                <div class="flex gap-3">
+                    <UButton 
+                        size="xs" 
+                        variant="soft" 
+                        color="teal" 
+                        @click="setAllFilters(true)"
+                        class="font-black text-[10px] uppercase tracking-wider rounded-lg px-3 py-1"
+                    >
+                        เลือกทั้งหมด
+                    </UButton>
+                    <UButton 
+                        size="xs" 
+                        variant="soft" 
+                        color="gray" 
+                        @click="setAllFilters(false)"
+                        class="font-black text-[10px] uppercase tracking-wider rounded-lg px-3 py-1"
+                    >
+                        ล้างทั้งหมด
+                    </UButton>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <UCheckbox v-model="excludeWeekends" label="กรองจันทร์ - ศุกร์" />
+                <UCheckbox v-model="excludeAppointed" label="ไม่เอาเคสผู้ป่วยนัด" />
+                <UCheckbox v-model="excludeLab" label="ไม่เอาเคสส่ง Lab" />
+                <UCheckbox v-model="excludeXray" label="ไม่เอาเคสส่ง X-Ray" />
+            </div>
         </div>
 
         <div v-if="stats" class="space-y-12">

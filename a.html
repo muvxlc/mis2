@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="th">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Eduplex Dashboard Clone</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        />
+
+        <style>
+            :root {
+                --bg-main: #f4f6f8;
+                --bg-sidebar: #1d1d2b;
+                --accent-green: #d4f05c;
+                --text-dark: #1d1d2b;
+                --text-gray: #8a8a9e;
+                --card-bg: #ffffff;
+                --radius-lg: 24px;
+                --radius-md: 16px;
+            }
+
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+                font-family: "Plus Jakarta Sans", sans-serif;
+            }
+
+            body {
+                background-color: var(--bg-main);
+                color: var(--text-dark);
+                display: flex;
+                height: 100vh;
+                overflow: hidden;
+            }
+
+            /* --- SIDEBAR --- */
+            .sidebar {
+                width: 260px;
+                background-color: var(--bg-sidebar);
+                padding: 30px 20px;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+            }
+
+            .logo {
+                color: white;
+                font-size: 24px;
+                font-weight: 700;
+                margin-bottom: 40px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .logo i {
+                color: var(--accent-green);
+            }
+
+            .menu-list {
+                list-style: none;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .menu-item a {
+                display: flex;
+                align-items: center;
+                gap: 15px;
+                color: var(--text-gray);
+                text-decoration: none;
+                padding: 14px 16px;
+                border-radius: var(--radius-md);
+                font-weight: 500;
+                transition: 0.3s;
+            }
+
+            .menu-item.active a {
+                background-color: var(--accent-green);
+                color: var(--text-dark);
+            }
+
+            .menu-item a:hover:not(.active a) {
+                color: white;
+                background-color: rgba(255, 255, 255, 0.05);
+            }
+
+            .app-download-card {
+                background-color: var(--accent-green);
+                padding: 20px;
+                border-radius: var(--radius-md);
+                text-align: center;
+                font-weight: 600;
+                font-size: 14px;
+            }
+
+            /* --- MAIN CONTENT --- */
+            .main-content {
+                flex: 1;
+                padding: 30px;
+                overflow-y: auto;
+                display: grid;
+                grid-template-columns: 2fr 1fr;
+                gap: 30px;
+            }
+
+            .left-column {
+                display: flex;
+                flex-direction: column;
+                gap: 30px;
+            }
+
+            .right-column {
+                display: flex;
+                flex-direction: column;
+                gap: 30px;
+            }
+
+            /* Header & Search */
+            .header-section {
+                grid-column: span 2;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .welcome-text h1 {
+                font-size: 28px;
+                font-weight: 700;
+            }
+
+            .search-box {
+                position: relative;
+            }
+
+            .search-box input {
+                padding: 12px 20px 12px 45px;
+                border-radius: 30px;
+                border: none;
+                background-color: white;
+                width: 300px;
+                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.02);
+            }
+
+            .search-box i {
+                position: absolute;
+                left: 18px;
+                top: 50%;
+                transform: translateY(-50%);
+                color: var(--text-gray);
+            }
+
+            /* Card Layouts */
+            .section-title {
+                font-size: 18px;
+                font-weight: 700;
+                margin-bottom: 15px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .section-title a {
+                font-size: 14px;
+                color: var(--text-gray);
+                text-decoration: none;
+            }
+
+            .card {
+                background: var(--card-bg);
+                border-radius: var(--radius-lg);
+                padding: 24px;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.01);
+            }
+
+            /* New Courses Grid */
+            .courses-grid {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 15px;
+            }
+
+            .course-mini-card {
+                background: white;
+                padding: 20px;
+                border-radius: var(--radius-md);
+                border: 1px solid #eef0f2;
+            }
+
+            .course-badge {
+                width: 40px;
+                height: 40px;
+                border-radius: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin-bottom: 15px;
+            }
+
+            /* Activity & Schedule Row */
+            .activity-schedule-grid {
+                display: grid;
+                grid-template-columns: 1.2fr 1fr;
+                gap: 20px;
+            }
+
+            /* Dummy Graph */
+            .graph-placeholder {
+                display: flex;
+                align-items: flex-end;
+                justify-content: space-between;
+                height: 150px;
+                padding-top: 20px;
+            }
+
+            .bar {
+                width: 12px;
+                background-color: var(--text-sidebar);
+                border-radius: 6px 6px 0 0;
+                transition: 0.3s;
+            }
+
+            .bar.active {
+                background-color: var(--accent-green);
+            }
+
+            /* Premium Card */
+            .premium-card {
+                background-color: var(--bg-sidebar);
+                color: white;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .premium-btn {
+                background-color: var(--accent-green);
+                color: var(--text-dark);
+                border: none;
+                padding: 12px 24px;
+                border-radius: 30px;
+                font-weight: 600;
+                margin-top: 15px;
+                cursor: pointer;
+            }
+
+            /* List Items (Schedule & Taking Courses) */
+            .list-item {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 12px 0;
+                border-bottom: 1px solid #f4f6f8;
+            }
+
+            .list-item:last-child {
+                border-bottom: none;
+            }
+
+            .item-info {
+                display: flex;
+                align-items: center;
+                gap: 15px;
+            }
+
+            .status-tag {
+                padding: 6px 12px;
+                border-radius: 20px;
+                font-size: 12px;
+                font-weight: 600;
+            }
+
+            .status-progress {
+                background-color: #e8f0fe;
+                color: #1a73e8;
+            }
+            .status-completed {
+                background-color: #e6f4ea;
+                color: #137333;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="sidebar">
+            <div>
+                <div class="logo">
+                    <i class="fa-solid fa-circle-notch"></i> Eduplex
+                </div>
+                <ul class="menu-list">
+                    <li class="menu-item active">
+                        <a href="#"
+                            ><i class="fa-solid fa-chart-pie"></i> Dashboard</a
+                        >
+                    </li>
+                    <li class="menu-item">
+                        <a href="#"
+                            ><i class="fa-solid fa-book-open"></i> My Courses</a
+                        >
+                    </li>
+                    <li class="menu-item">
+                        <a href="#"
+                            ><i class="fa-solid fa-graduation-cap"></i> My
+                            Classes</a
+                        >
+                    </li>
+                    <li class="menu-item">
+                        <a href="#"
+                            ><i class="fa-solid fa-comment-dots"></i>
+                            Messages</a
+                        >
+                    </li>
+                    <li class="menu-item">
+                        <a href="#"
+                            ><i class="fa-solid fa-bell"></i> Notifications</a
+                        >
+                    </li>
+                    <li class="menu-item">
+                        <a href="#"
+                            ><i class="fa-solid fa-calendar-days"></i>
+                            Calendars</a
+                        >
+                    </li>
+                </ul>
+            </div>
+            <div class="app-download-card">
+                <p>Download our mobile app</p>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="header-section">
+                <div class="welcome-text">
+                    <h1>Welcome back Taylor 👋</h1>
+                </div>
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" placeholder="Search courses" />
+                </div>
+            </div>
+
+            <div class="left-column">
+                <div>
+                    <div class="section-title">
+                        <h2>New Courses</h2>
+                        <a href="#">View All</a>
+                    </div>
+                    <div class="courses-grid">
+                        <div class="course-mini-card">
+                            <div
+                                class="course-badge"
+                                style="
+                                    background-color: #ffe8ec;
+                                    color: #ff5b7f;
+                                "
+                            >
+                                <i class="fa-solid fa-pen-nib"></i>
+                            </div>
+                            <h3>Content Writing</h3>
+                            <p
+                                style="
+                                    color: var(--text-gray);
+                                    font-size: 13px;
+                                    margin-top: 5px;
+                                "
+                            >
+                                12 Lessons
+                            </p>
+                        </div>
+                        <div class="course-mini-card">
+                            <div
+                                class="course-badge"
+                                style="
+                                    background-color: #e3f2fd;
+                                    color: #1e88e5;
+                                "
+                            >
+                                <i class="fa-solid fa-code"></i>
+                            </div>
+                            <h3>Usability Testing</h3>
+                            <p
+                                style="
+                                    color: var(--text-gray);
+                                    font-size: 13px;
+                                    margin-top: 5px;
+                                "
+                            >
+                                15 Lessons
+                            </p>
+                        </div>
+                        <div class="course-mini-card">
+                            <div
+                                class="course-badge"
+                                style="
+                                    background-color: #efe8ff;
+                                    color: #7c4dff;
+                                "
+                            >
+                                <i class="fa-solid fa-camera"></i>
+                            </div>
+                            <h3>Photography</h3>
+                            <p
+                                style="
+                                    color: var(--text-gray);
+                                    font-size: 13px;
+                                    margin-top: 5px;
+                                "
+                            >
+                                8 Lessons
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="activity-schedule-grid">
+                    <div class="card">
+                        <div class="section-title">
+                            <h3>Hours Activity</h3>
+                        </div>
+                        <div class="graph-placeholder">
+                            <div class="bar" style="height: 60%"></div>
+                            <div class="bar" style="height: 80%"></div>
+                            <div class="bar" style="height: 40%"></div>
+                            <div class="bar active" style="height: 95%"></div>
+                            <div class="bar" style="height: 70%"></div>
+                            <div class="bar" style="height: 30%"></div>
+                            <div class="bar" style="height: 65%"></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="section-title">
+                            <h3>Daily Schedule</h3>
+                        </div>
+                        <div class="list-item">
+                            <div class="item-info">
+                                <i
+                                    class="fa-solid fa-layer-group"
+                                    style="color: #ffb300"
+                                ></i>
+                                <div>
+                                    <h4>Design System</h4>
+                                    <p
+                                        style="
+                                            font-size: 12px;
+                                            color: var(--text-gray);
+                                        "
+                                    >
+                                        Lecture - Class
+                                    </p>
+                                </div>
+                            </div>
+                            <i
+                                class="fa-solid fa-chevron-right"
+                                style="color: var(--text-gray)"
+                            ></i>
+                        </div>
+                        <div class="list-item">
+                            <div class="item-info">
+                                <i
+                                    class="fa-solid fa-font"
+                                    style="color: #9c27b0"
+                                ></i>
+                                <div>
+                                    <h4>Typography</h4>
+                                    <p
+                                        style="
+                                            font-size: 12px;
+                                            color: var(--text-gray);
+                                        "
+                                    >
+                                        Group - Test
+                                    </p>
+                                </div>
+                            </div>
+                            <i
+                                class="fa-solid fa-chevron-right"
+                                style="color: var(--text-gray)"
+                            ></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="section-title">
+                        <h2>Course You're Taking</h2>
+                    </div>
+                    <div
+                        class="card"
+                        style="display: flex; flex-direction: column; gap: 15px"
+                    >
+                        <div
+                            style="
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                            "
+                        >
+                            <div class="item-info">
+                                <div
+                                    class="course-badge"
+                                    style="background-color: #ede7f6; margin: 0"
+                                >
+                                    <i
+                                        class="fa-solid fa-cube"
+                                        style="color: #673ab7"
+                                    ></i>
+                                </div>
+                                <div>
+                                    <h4>3D Design Course</h4>
+                                    <p
+                                        style="
+                                            font-size: 12px;
+                                            color: var(--text-gray);
+                                        "
+                                    >
+                                        Micheal Andrew
+                                    </p>
+                                </div>
+                            </div>
+                            <span style="font-weight: 600; font-size: 14px"
+                                >45%</span
+                            >
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="right-column">
+                <div class="card premium-card">
+                    <h3>Go Premium</h3>
+                    <p
+                        style="
+                            font-size: 13px;
+                            color: #a4a4b5;
+                            margin-top: 8px;
+                            line-height: 1.4;
+                        "
+                    >
+                        Explore 25k+ courses with lifetime membership
+                    </p>
+                    <button class="premium-btn">Get Access</button>
+                </div>
+
+                <div>
+                    <div class="section-title">
+                        <h2>Assignments</h2>
+                    </div>
+                    <div
+                        class="card"
+                        style="display: flex; flex-direction: column; gap: 15px"
+                    >
+                        <div class="list-item">
+                            <div>
+                                <h4>Methods of data</h4>
+                                <p
+                                    style="
+                                        font-size: 12px;
+                                        color: var(--text-gray);
+                                        margin-top: 4px;
+                                    "
+                                >
+                                    02 July, 10:30 AM
+                                </p>
+                            </div>
+                            <span class="status-tag status-progress"
+                                >In progress</span
+                            >
+                        </div>
+                        <div class="list-item">
+                            <div>
+                                <h4>Market Research</h4>
+                                <p
+                                    style="
+                                        font-size: 12px;
+                                        color: var(--text-gray);
+                                        margin-top: 4px;
+                                    "
+                                >
+                                    14 June, 12:45 AM
+                                </p>
+                            </div>
+                            <span class="status-tag status-completed"
+                                >Completed</span
+                            >
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
