@@ -6,7 +6,7 @@ const endDate = ref(today);
 // การสลับช่วงเวลาสำหรับใช้วิเคราะห์ปัญหา (ดีฟอลต์เป็น standard 08:00 - 16:00)
 const analysisPeriod = ref('standard'); // 'standard' | 'early'
 const startTime = computed(() => analysisPeriod.value === 'early' ? '05:00:00' : '08:00:00');
-const endTime = computed(() => '16:00:00');
+const endTime = computed(() => '16:00:59');
 
 // 4 ตัวกรอง Reactive อัจฉริยะสำหรับคัดกรองข้อมูลสถิติ HOSxP (เริ่มต้นเป็น false เพื่อให้โหลดข้อมูลทั้งหมดก่อนเมื่อเข้าครั้งแรก)
 const excludeWeekends = ref(false);

@@ -26,6 +26,8 @@ graphify-out/
 .vscode
 .zed
 .agents
+.antigravitycli/
+.superpowers/
 .claude
 .codex
 .cursor
