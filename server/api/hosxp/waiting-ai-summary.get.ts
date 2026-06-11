@@ -46,7 +46,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const dateTimeStart = `${startDate} 08:00:00`;
-  const dateTimeEnd = `${endDate} 16:00:00`;
+  const dateTimeEnd = `${endDate} 16:59:59`;
 
   try {
     // 2. ดึงการตั้งค่าฐานข้อมูล HOSxP
@@ -146,7 +146,7 @@ export default defineEventHandler(async (event) => {
         WHERE CONCAT(o.vstdate, ' ', o.vsttime) BETWEEN ${dateTimeStart} AND ${dateTimeEnd} 
           AND o.main_dep = '010'
           AND o.spclty = '01'
-          AND o.vsttime BETWEEN '08:00:00' AND '16:00:00'
+          AND o.vsttime BETWEEN '08:00:00' AND '16:59:59'
           ${sql.raw(filterConditions)}
       ) o
       JOIN ovst_service_time t1 ON t1.vn = o.vn AND t1.ovst_service_time_type_code = 'OPD-NEW-VISIT'
@@ -198,7 +198,7 @@ export default defineEventHandler(async (event) => {
         WHERE CONCAT(o.vstdate, ' ', o.vsttime) BETWEEN ${dateTimeStart} AND ${dateTimeEnd} 
           AND o.main_dep = '010'
           AND o.spclty = '01'
-          AND o.vsttime BETWEEN '08:00:00' AND '16:00:00'
+          AND o.vsttime BETWEEN '08:00:00' AND '16:59:59'
           ${sql.raw(filterConditions)}
       ) o
       JOIN ovst_service_time t1 ON t1.vn = o.vn AND t1.ovst_service_time_type_code = 'OPD-NEW-VISIT'

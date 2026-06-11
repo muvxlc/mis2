@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   const startDate = query.startDate as string || new Date().toISOString().split('T')[0];
   const endDate = query.endDate as string || new Date().toISOString().split('T')[0];
   const startTime = query.startTime as string || '08:00:00';
-  const endTime = query.endTime as string || '16:00:00';
+  const endTime = query.endTime as string || '16:59:59';
 
   const cacheKey = `${startDate}_${endDate}_${startTime}_${endTime}`;
   const now = Date.now();
