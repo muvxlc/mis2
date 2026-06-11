@@ -47,7 +47,7 @@ docker-compose down
 
 # Build and start services
 print_info "Building and starting services..."
-docker-compose up -d --build
+docker-compose up -d --build mariadb redis app
 
 # Wait for services to be healthy
 print_info "Waiting for services to be ready..."
