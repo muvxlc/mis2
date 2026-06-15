@@ -345,6 +345,12 @@ const getPhysicianWaitClass = (avg: number, count: number) => {
     return 'bg-red-500 dark:bg-red-600 text-white shadow-lg shadow-red-500/20';
 };
 
+const safeNum = (val: any): number => {
+    if (val === null || val === undefined) return 0;
+    const n = parseFloat(String(val));
+    return isNaN(n) ? 0 : n;
+};
+
 </script>
 
 <template>
@@ -1059,7 +1065,9 @@ const getPhysicianWaitClass = (avg: number, count: number) => {
                                 <span class="font-bold text-teal-600 dark:text-teal-400 flex items-center gap-1">
                                     <UIcon name="i-heroicons-clock" /> รอซักประวัติ
                                 </span>
-                                <span class="font-black text-[#2c323f] dark:text-white tabular-nums">{{ Math.round(selectedVnDetailsData.wait_screen_m || 0) }} นาที</span>
+                                <span class="font-black text-[#2c323f] dark:text-white tabular-nums">
+                                    {{ selectedVnDetailsData.wait_screen_m !== null ? Math.round(safeNum(selectedVnDetailsData.wait_screen_m)) + ' นาที' : '-' }}
+                                </span>
                             </div>
 
                             <!-- Step 2: ซักประวัติ -->
@@ -1071,7 +1079,9 @@ const getPhysicianWaitClass = (avg: number, count: number) => {
                                         เริ่ม: {{ selectedVnDetailsData.screen_begin_dt ? selectedVnDetailsData.screen_begin_dt.split(' ')[1] : '-' }} &rarr; 
                                         เสร็จ: {{ selectedVnDetailsData.screen_end_dt ? selectedVnDetailsData.screen_end_dt.split(' ')[1] : '-' }}
                                     </p>
-                                    <p class="text-[11px] font-bold text-teal-600 dark:text-teal-400 mt-1">ระยะเวลาให้บริการ: {{ Math.round(parseFloat(String(selectedVnDetailsData.screen_m))) }} นาที</p>
+                                    <p class="text-[11px] font-bold text-teal-600 dark:text-teal-400 mt-1">
+                                        ระยะเวลาให้บริการ: {{ selectedVnDetailsData.screen_m !== null && selectedVnDetailsData.screen_m !== undefined ? Math.round(safeNum(selectedVnDetailsData.screen_m)) + ' นาที' : '-' }}
+                                    </p>
                                 </div>
                             </div>
 
@@ -1080,7 +1090,9 @@ const getPhysicianWaitClass = (avg: number, count: number) => {
                                 <span class="font-bold text-[#ba895d] flex items-center gap-1">
                                     <UIcon name="i-heroicons-clock" /> รอพบแพทย์
                                 </span>
-                                <span class="font-black text-[#2c323f] dark:text-white tabular-nums">{{ Math.round(selectedVnDetailsData.wait_doctor_m) }} นาที</span>
+                                <span class="font-black text-[#2c323f] dark:text-white tabular-nums">
+                                    {{ selectedVnDetailsData.wait_doctor_m !== null ? Math.round(safeNum(selectedVnDetailsData.wait_doctor_m)) + ' นาที' : '-' }}
+                                </span>
                             </div>
 
                             <!-- Step 3: แพทย์ตรวจ -->
@@ -1092,7 +1104,9 @@ const getPhysicianWaitClass = (avg: number, count: number) => {
                                         เริ่ม: {{ selectedVnDetailsData.doc_begin_dt ? selectedVnDetailsData.doc_begin_dt.split(' ')[1] : '-' }} &rarr; 
                                         เสร็จ: {{ selectedVnDetailsData.doc_end_dt ? selectedVnDetailsData.doc_end_dt.split(' ')[1] : '-' }}
                                     </p>
-                                    <p class="text-[11px] font-bold text-green-600 dark:text-green-400 mt-1">ระยะเวลาให้บริการ: {{ Math.round(parseFloat(String(selectedVnDetailsData.doctor_m))) }} นาที</p>
+                                    <p class="text-[11px] font-bold text-green-600 dark:text-green-400 mt-1">
+                                        ระยะเวลาให้บริการ: {{ selectedVnDetailsData.doctor_m !== null && selectedVnDetailsData.doctor_m !== undefined ? Math.round(safeNum(selectedVnDetailsData.doctor_m)) + ' นาที' : '-' }}
+                                    </p>
                                 </div>
                             </div>
 
@@ -1101,7 +1115,9 @@ const getPhysicianWaitClass = (avg: number, count: number) => {
                                 <span class="font-bold text-orange-600 dark:text-orange-400 flex items-center gap-1">
                                     <UIcon name="i-heroicons-clock" /> รอรับยา/บริการ
                                 </span>
-                                <span class="font-black text-[#2c323f] dark:text-white tabular-nums">{{ Math.round(selectedVnDetailsData.wait_drug_m) }} นาที</span>
+                                <span class="font-black text-[#2c323f] dark:text-white tabular-nums">
+                                    {{ selectedVnDetailsData.wait_drug_m !== null ? Math.round(safeNum(selectedVnDetailsData.wait_drug_m)) + ' นาที' : '-' }}
+                                </span>
                             </div>
 
                             <!-- Step 4: รับยาเสร็จสิ้น -->
@@ -1142,7 +1158,9 @@ const getPhysicianWaitClass = (avg: number, count: number) => {
                         <!-- Total Journey Footer -->
                         <div class="bg-gradient-to-br from-[#2c323f] to-[#1a1a2e] text-white p-5 rounded-2xl flex items-center justify-between shadow-xl">
                             <span class="text-xs font-black uppercase tracking-wider text-white/55">เวลารวมทั้งหมดใน รพ.</span>
-                            <span class="text-2xl font-black italic tabular-nums">{{ Math.round((selectedVnDetailsData.wait_screen_m || 0) + parseFloat(String(selectedVnDetailsData.screen_m)) + selectedVnDetailsData.wait_doctor_m + parseFloat(String(selectedVnDetailsData.doctor_m)) + selectedVnDetailsData.wait_drug_m) }} นาที</span>
+                            <span class="text-2xl font-black italic tabular-nums">
+                                {{ Math.round(safeNum(selectedVnDetailsData.wait_screen_m) + safeNum(selectedVnDetailsData.screen_m) + safeNum(selectedVnDetailsData.wait_doctor_m) + safeNum(selectedVnDetailsData.doctor_m) + safeNum(selectedVnDetailsData.wait_drug_m)) }} นาที
+                            </span>
                         </div>
                     </template>
                 </div>
