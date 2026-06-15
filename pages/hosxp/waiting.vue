@@ -307,6 +307,44 @@ const peakVsNormalRatio = computed(() => {
     return (peakTotal / avgNormal).toFixed(1);
 });
 
+// Helper functions for dynamic multi-stage heatmap coloring
+const getScreeningLoadClass = (count: number, max: number) => {
+    if (count === 0) return 'bg-gray-50 dark:bg-gray-800/40 text-gray-200 dark:text-gray-750';
+    const ratio = count / (max || 1);
+    if (ratio <= 0.15) return 'bg-teal-50 dark:bg-teal-950/20 text-teal-600 dark:text-teal-400 border border-teal-100/50 dark:border-teal-900/30';
+    if (ratio <= 0.35) return 'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300';
+    if (ratio <= 0.60) return 'bg-teal-400 dark:bg-teal-600 text-white';
+    if (ratio <= 0.85) return 'bg-orange-400 dark:bg-orange-600 text-white';
+    return 'bg-red-500 dark:bg-red-600 text-white shadow-lg shadow-red-500/20 animate-pulse-slow';
+};
+
+const getScreeningWaitClass = (avg: number, count: number) => {
+    if (count === 0 || avg === 0) return 'bg-gray-50 dark:bg-gray-800/40 text-gray-200 dark:text-gray-750';
+    if (avg <= 10) return 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-100/50 dark:border-emerald-900/30';
+    if (avg <= 20) return 'bg-teal-50 dark:bg-teal-950/30 text-teal-700 dark:text-teal-300';
+    if (avg <= 30) return 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300';
+    if (avg <= 45) return 'bg-orange-400 dark:bg-orange-600 text-white';
+    return 'bg-red-500 dark:bg-red-600 text-white shadow-lg shadow-red-500/20';
+};
+
+const getPhysicianLoadClass = (count: number, max: number) => {
+    if (count === 0) return 'bg-gray-50 dark:bg-gray-800/40 text-gray-200 dark:text-gray-750';
+    const ratio = count / (max || 1);
+    if (ratio <= 0.15) return 'bg-amber-50 dark:bg-amber-950/20 text-[#ba895d] dark:text-[#d4a373] border border-amber-100/50 dark:border-amber-900/30';
+    if (ratio <= 0.35) return 'bg-[#fff8e1] dark:bg-amber-900/20 text-[#ba895d] dark:text-[#d4a373]';
+    if (ratio <= 0.60) return 'bg-[#e3b284] dark:bg-[#c58d55] text-white';
+    if (ratio <= 0.85) return 'bg-[#ba895d] dark:bg-[#966b44] text-white';
+    return 'bg-red-500 dark:bg-red-600 text-white shadow-lg shadow-red-500/20';
+};
+
+const getPhysicianWaitClass = (avg: number, count: number) => {
+    if (count === 0 || avg === 0) return 'bg-gray-50 dark:bg-gray-800/40 text-gray-200 dark:text-gray-750';
+    if (avg <= 15) return 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-100/50 dark:border-emerald-900/30';
+    if (avg <= 30) return 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-[#d4a373]';
+    if (avg <= 45) return 'bg-orange-400 dark:bg-orange-600 text-white';
+    return 'bg-red-500 dark:bg-red-600 text-white shadow-lg shadow-red-500/20';
+};
+
 </script>
 
 <template>
@@ -704,8 +742,8 @@ const peakVsNormalRatio = computed(() => {
                                     <span class="text-[9px] font-bold text-gray-400 uppercase italic mt-1">Patient Load</span>
                                 </div>
                                 <div class="flex-1 flex gap-3 h-16">
-                                    <div v-for="(h, idx) in displayHourlyScreen" :key="idx" class="flex-1 rounded-[1.2rem] flex items-center justify-center group/cell relative transition-all duration-500 hover:scale-110 hover:-translate-y-2 hover:shadow-xl shadow-teal-500/20" :style="{ backgroundColor: h.patient_count === 0 ? '#f5f7fb' : h.patient_count > (maxPatientsScreen * 0.7) ? '#f87171' : '#2dd4bf' }">
-                                        <span class="text-xs font-black" :class="h.patient_count === 0 ? 'text-gray-200' : 'text-white'">{{ h.patient_count }}</span>
+                                    <div v-for="(h, idx) in displayHourlyScreen" :key="idx" class="flex-1 rounded-[1.2rem] flex items-center justify-center group/cell relative transition-all duration-500 hover:scale-110 hover:-translate-y-2 hover:shadow-xl shadow-teal-500/20" :class="getScreeningLoadClass(h.patient_count, maxPatientsScreen)">
+                                        <span class="text-xs font-black">{{ h.patient_count }}</span>
                                         <div class="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#2c323f] text-white text-[10px] px-3 py-1.5 rounded-xl opacity-0 group-hover/cell:opacity-100 whitespace-nowrap z-50 pointer-events-none font-bold shadow-2xl scale-0 group-hover/cell:scale-100 transition-all">
                                             {{ h.visit_hour }}:00 | {{ h.patient_count }} Patients
                                         </div>
@@ -715,8 +753,8 @@ const peakVsNormalRatio = computed(() => {
                             <div class="flex items-center">
                                 <div class="w-32 shrink-0 text-[9px] font-bold text-gray-400 uppercase italic">Waiting Avg</div>
                                 <div class="flex-1 flex gap-3 h-16">
-                                    <div v-for="(h, idx) in displayHourlyScreen" :key="idx" class="flex-1 rounded-[1.2rem] flex items-center justify-center group/cell relative transition-all duration-500 hover:scale-110 hover:-translate-y-2 hover:shadow-xl shadow-red-500/20" :style="{ backgroundColor: h.patient_count === 0 ? '#f5f7fb' : h.avg_wait_minutes > 30 ? '#ef4444' : '#14b8a6' }">
-                                        <span v-if="h.patient_count > 0" class="text-[10px] font-black text-white">{{ Math.round(h.avg_wait_minutes) }}m</span>
+                                    <div v-for="(h, idx) in displayHourlyScreen" :key="idx" class="flex-1 rounded-[1.2rem] flex items-center justify-center group/cell relative transition-all duration-500 hover:scale-110 hover:-translate-y-2 hover:shadow-xl shadow-red-500/20" :class="getScreeningWaitClass(h.avg_wait_minutes, h.patient_count)">
+                                        <span v-if="h.patient_count > 0" class="text-[10px] font-black">{{ Math.round(h.avg_wait_minutes) }}m</span>
                                     </div>
                                 </div>
                             </div>
@@ -733,16 +771,16 @@ const peakVsNormalRatio = computed(() => {
                                     <span class="text-[9px] font-bold text-gray-400 uppercase italic mt-1">Patient Load</span>
                                 </div>
                                 <div class="flex-1 flex gap-3 h-16">
-                                    <div v-for="(h, idx) in displayHourlyDoctor" :key="idx" class="flex-1 rounded-[1.2rem] flex items-center justify-center group/cell relative transition-all duration-500 hover:scale-110 hover:-translate-y-2 hover:shadow-xl shadow-amber-500/20" :style="{ backgroundColor: h.patient_count === 0 ? '#f5f7fb' : h.patient_count > (maxPatientsDoctor * 0.7) ? '#fbbf24' : '#ba895d' }">
-                                        <span class="text-xs font-black" :class="h.patient_count === 0 ? 'text-gray-200' : 'text-white'">{{ h.patient_count }}</span>
+                                    <div v-for="(h, idx) in displayHourlyDoctor" :key="idx" class="flex-1 rounded-[1.2rem] flex items-center justify-center group/cell relative transition-all duration-500 hover:scale-110 hover:-translate-y-2 hover:shadow-xl shadow-amber-500/20" :class="getPhysicianLoadClass(h.patient_count, maxPatientsDoctor)">
+                                        <span class="text-xs font-black">{{ h.patient_count }}</span>
                                     </div>
                                 </div>
                             </div>
                             <div class="flex items-center">
                                 <div class="w-32 shrink-0 text-[9px] font-bold text-gray-400 uppercase italic">Waiting Avg</div>
                                 <div class="flex-1 flex gap-3 h-16">
-                                    <div v-for="(h, idx) in displayHourlyDoctor" :key="idx" class="flex-1 rounded-[1.2rem] flex items-center justify-center group/cell relative transition-all duration-500 hover:scale-110 hover:-translate-y-2 hover:shadow-xl shadow-orange-500/20" :style="{ backgroundColor: h.patient_count === 0 ? '#f5f7fb' : h.avg_wait_minutes > 40 ? '#f97316' : '#ba895d' }">
-                                        <span v-if="h.patient_count > 0" class="text-[10px] font-black text-white">{{ Math.round(h.avg_wait_minutes) }}m</span>
+                                    <div v-for="(h, idx) in displayHourlyDoctor" :key="idx" class="flex-1 rounded-[1.2rem] flex items-center justify-center group/cell relative transition-all duration-500 hover:scale-110 hover:-translate-y-2 hover:shadow-xl shadow-orange-500/20" :class="getPhysicianWaitClass(h.avg_wait_minutes, h.patient_count)">
+                                        <span v-if="h.patient_count > 0" class="text-[10px] font-black">{{ Math.round(h.avg_wait_minutes) }}m</span>
                                     </div>
                                 </div>
                             </div>
