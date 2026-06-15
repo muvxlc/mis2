@@ -108,29 +108,20 @@ export default defineEventHandler(async (event) => {
         COUNT(DISTINCT o.vstdate) AS day_cc,
         COUNT(DISTINCT o.vn) AS visit_cc,
         
-        ROUND(
-            (SUM(TIMESTAMPDIFF(MINUTE, t1.service_end_datetime, t2.service_begin_datetime)) / COUNT(DISTINCT o.vstdate)) 
-            / AVG(TIMESTAMPDIFF(MINUTE, t1.service_end_datetime, t2.service_begin_datetime)) 
-        , 0) AS wait_screen_cc,
+        ROUND(AVG(TIMESTAMPDIFF(MINUTE, t1.service_end_datetime, t2.service_begin_datetime)), 0) AS wait_screen_cc,
         ROUND(AVG(t2.service_time_second / 60), 0) AS screen_cc,
         
-        ROUND(
-            (SUM(IFNULL(TIMESTAMPDIFF(MINUTE, t2.service_end_datetime, t3.service_begin_datetime), 0)) / COUNT(DISTINCT o.vstdate)) 
-            / AVG(IFNULL(TIMESTAMPDIFF(MINUTE, t2.service_end_datetime, t3.service_begin_datetime), NULL)) 
-        , 0) AS wait_doctor,
+        ROUND(AVG(IFNULL(TIMESTAMPDIFF(MINUTE, t2.service_end_datetime, t3.service_begin_datetime), NULL)), 0) AS wait_doctor,
         ROUND(AVG(IFNULL(t3.service_time_second / 60, NULL)), 0) AS doctor_cc,
 
-        ROUND(
-            (SUM(IFNULL(TIMESTAMPDIFF(MINUTE, t3.service_end_datetime, rx.rx_dispenser_datetime), 0)) / COUNT(DISTINCT o.vstdate)) 
-            / AVG(IFNULL(TIMESTAMPDIFF(MINUTE, t3.service_end_datetime, rx.rx_dispenser_datetime), NULL)) 
-        , 0) AS wait_drug_cc,
+        ROUND(AVG(IFNULL(TIMESTAMPDIFF(MINUTE, t3.service_end_datetime, rx.rx_dispenser_datetime), NULL)), 0) AS wait_drug_cc,
 
         (
-          ROUND((SUM(TIMESTAMPDIFF(MINUTE, t1.service_end_datetime, t2.service_begin_datetime)) / COUNT(DISTINCT o.vstdate)) / AVG(TIMESTAMPDIFF(MINUTE, t1.service_end_datetime, t2.service_begin_datetime)), 0) +
+          ROUND(AVG(TIMESTAMPDIFF(MINUTE, t1.service_end_datetime, t2.service_begin_datetime)), 0) +
           ROUND(AVG(t2.service_time_second / 60), 0) +
-          ROUND((SUM(IFNULL(TIMESTAMPDIFF(MINUTE, t2.service_end_datetime, t3.service_begin_datetime), 0)) / COUNT(DISTINCT o.vstdate)) / AVG(IFNULL(TIMESTAMPDIFF(MINUTE, t2.service_end_datetime, t3.service_begin_datetime), NULL)), 0) +
+          ROUND(AVG(IFNULL(TIMESTAMPDIFF(MINUTE, t2.service_end_datetime, t3.service_begin_datetime), NULL)), 0) +
           ROUND(AVG(IFNULL(t3.service_time_second / 60, NULL)), 0) +
-          ROUND((SUM(IFNULL(TIMESTAMPDIFF(MINUTE, t3.service_end_datetime, rx.rx_dispenser_datetime), 0)) / COUNT(DISTINCT o.vstdate)) / AVG(IFNULL(TIMESTAMPDIFF(MINUTE, t3.service_end_datetime, rx.rx_dispenser_datetime), NULL)), 0)
+          ROUND(AVG(IFNULL(TIMESTAMPDIFF(MINUTE, t3.service_end_datetime, rx.rx_dispenser_datetime), NULL)), 0)
         ) AS total_wait,
         
         MIN(TIMESTAMPDIFF(MINUTE, t1.service_end_datetime, t2.service_begin_datetime) + (t2.service_time_second / 60) + IFNULL(TIMESTAMPDIFF(MINUTE, t2.service_end_datetime, t3.service_begin_datetime), 0) + IFNULL(t3.service_time_second / 60, 0) + IFNULL(TIMESTAMPDIFF(MINUTE, t3.service_end_datetime, rx.rx_dispenser_datetime), 0)) AS m_min_total,
@@ -149,10 +140,36 @@ export default defineEventHandler(async (event) => {
           AND o.vsttime BETWEEN '08:00:00' AND '16:00:59'
           ${sql.raw(filterConditions)}
       ) o
-      JOIN ovst_service_time t1 ON t1.vn = o.vn AND t1.ovst_service_time_type_code = 'OPD-NEW-VISIT'
-      JOIN ovst_service_time t2 ON t2.vn = o.vn AND t2.ovst_service_time_type_code = 'OPD-SCREEN'
-      LEFT JOIN ovst_service_time t3 ON t3.vn = o.vn AND t3.ovst_service_time_type_code = 'OPD-DOCTOR' AND t3.service_begin_datetime >= t2.service_end_datetime
-      LEFT JOIN rx_dispenser_detail rx ON rx.vn = o.vn AND rx.rx_dispenser_type_id='4' AND rx.confirm_substock_transaction = 'Y' AND rx.rx_dispenser_datetime >= t3.service_end_datetime
+      JOIN (
+        SELECT vn, MAX(service_end_datetime) AS service_end_datetime
+        FROM ovst_service_time
+        WHERE ovst_service_time_type_code = 'OPD-NEW-VISIT'
+        GROUP BY vn
+      ) t1 ON t1.vn = o.vn
+      JOIN (
+        SELECT vn, 
+               MAX(service_begin_datetime) AS service_begin_datetime,
+               MAX(service_end_datetime) AS service_end_datetime,
+               MAX(service_time_second) AS service_time_second
+        FROM ovst_service_time
+        WHERE ovst_service_time_type_code = 'OPD-SCREEN'
+        GROUP BY vn
+      ) t2 ON t2.vn = o.vn
+      LEFT JOIN (
+        SELECT vn, 
+               MAX(service_begin_datetime) AS service_begin_datetime,
+               MAX(service_end_datetime) AS service_end_datetime,
+               MAX(service_time_second) AS service_time_second
+        FROM ovst_service_time
+        WHERE ovst_service_time_type_code = 'OPD-DOCTOR'
+        GROUP BY vn
+      ) t3 ON t3.vn = o.vn AND t3.service_begin_datetime >= t2.service_end_datetime
+      LEFT JOIN (
+        SELECT vn, MAX(rx_dispenser_datetime) AS rx_dispenser_datetime
+        FROM rx_dispenser_detail
+        WHERE rx_dispenser_type_id = '4' AND confirm_substock_transaction = 'Y'
+        GROUP BY vn
+      ) rx ON rx.vn = o.vn AND rx.rx_dispenser_datetime >= t3.service_end_datetime
       WHERE t2.service_begin_datetime >= t1.service_end_datetime
       GROUP BY departmentname 
     `);
@@ -201,10 +218,36 @@ export default defineEventHandler(async (event) => {
           AND o.vsttime BETWEEN '08:00:00' AND '16:00:59'
           ${sql.raw(filterConditions)}
       ) o
-      JOIN ovst_service_time t1 ON t1.vn = o.vn AND t1.ovst_service_time_type_code = 'OPD-NEW-VISIT'
-      JOIN ovst_service_time t2 ON t2.vn = o.vn AND t2.ovst_service_time_type_code = 'OPD-SCREEN'
-      LEFT JOIN ovst_service_time t3 ON t3.vn = o.vn AND t3.ovst_service_time_type_code = 'OPD-DOCTOR' AND t3.service_begin_datetime >= t2.service_end_datetime
-      LEFT JOIN rx_dispenser_detail rx ON rx.vn = o.vn AND rx.rx_dispenser_type_id='4' AND rx.confirm_substock_transaction = 'Y' AND rx.rx_dispenser_datetime >= t3.service_end_datetime
+      JOIN (
+        SELECT vn, MAX(service_end_datetime) AS service_end_datetime
+        FROM ovst_service_time
+        WHERE ovst_service_time_type_code = 'OPD-NEW-VISIT'
+        GROUP BY vn
+      ) t1 ON t1.vn = o.vn
+      JOIN (
+        SELECT vn, 
+               MAX(service_begin_datetime) AS service_begin_datetime,
+               MAX(service_end_datetime) AS service_end_datetime,
+               MAX(service_time_second) AS service_time_second
+        FROM ovst_service_time
+        WHERE ovst_service_time_type_code = 'OPD-SCREEN'
+        GROUP BY vn
+      ) t2 ON t2.vn = o.vn
+      LEFT JOIN (
+        SELECT vn, 
+               MAX(service_begin_datetime) AS service_begin_datetime,
+               MAX(service_end_datetime) AS service_end_datetime,
+               MAX(service_time_second) AS service_time_second
+        FROM ovst_service_time
+        WHERE ovst_service_time_type_code = 'OPD-DOCTOR'
+        GROUP BY vn
+      ) t3 ON t3.vn = o.vn AND t3.service_begin_datetime >= t2.service_end_datetime
+      LEFT JOIN (
+        SELECT vn, MAX(rx_dispenser_datetime) AS rx_dispenser_datetime
+        FROM rx_dispenser_detail
+        WHERE rx_dispenser_type_id = '4' AND confirm_substock_transaction = 'Y'
+        GROUP BY vn
+      ) rx ON rx.vn = o.vn AND rx.rx_dispenser_datetime >= t3.service_end_datetime
       WHERE t2.service_begin_datetime >= t1.service_end_datetime
     `);
 

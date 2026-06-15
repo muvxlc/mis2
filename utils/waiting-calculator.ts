@@ -12,19 +12,26 @@ export interface WaitingFilters {
 
 export interface PatientVisit {
   vn: string;
+  hn: string;
   vstdate: string;
   vsttime: string;
   departmentname: string;
   visit_hour: number;
   wait_screen_m: number | null;
-  screen_m: string | number;
-  wait_doctor_m: number;
-  doctor_m: string | number;
-  wait_drug_m: number;
+  screen_m: string | number | null;
+  wait_doctor_m: number | null;
+  doctor_m: string | number | null;
+  wait_drug_m: number | null;
   is_weekend: number;
   is_appointed: number;
   has_lab: number;
   has_xray: number;
+  reg_end_dt?: string | null;
+  screen_begin_dt?: string | null;
+  screen_end_dt?: string | null;
+  doc_begin_dt?: string | null;
+  doc_end_dt?: string | null;
+  rx_dispense_dt?: string | null;
 }
 
 /**
@@ -114,29 +121,29 @@ export function calculateStats(list: PatientVisit[], defaultDeptName = 'จุ�
   }
 
   // 1. รอซักประวัติ
-  const sum_wait_screen = list.reduce((acc, v) => acc + (v.wait_screen_m || 0), 0);
   const valid_wait_screen = list.filter(v => v.wait_screen_m !== null);
-  const avg_wait_screen = valid_wait_screen.length > 0 ? (valid_wait_screen.reduce((acc, v) => acc + (v.wait_screen_m || 0), 0) / valid_wait_screen.length) : 0;
-  const wait_screen_cc = avg_wait_screen > 0 ? Math.round((sum_wait_screen / day_cc) / avg_wait_screen) : 0;
+  const wait_screen_cc = valid_wait_screen.length > 0 
+    ? Math.round(valid_wait_screen.reduce((acc, v) => acc + (v.wait_screen_m || 0), 0) / valid_wait_screen.length) 
+    : 0;
 
   // 2. ซักประวัติ
   const screen_cc = Math.round(list.reduce((acc, v) => acc + parseFloat(String(v.screen_m || 0)), 0) / total_patients);
 
   // 3. รอตรวจ
-  const sum_wait_doctor = list.reduce((acc, v) => acc + (v.wait_doctor_m || 0), 0);
-  const valid_wait_doctor = list.filter(v => v.wait_doctor_m > 0);
-  const avg_wait_doctor = valid_wait_doctor.length > 0 ? (valid_wait_doctor.reduce((acc, v) => acc + v.wait_doctor_m, 0) / valid_wait_doctor.length) : 0;
-  const wait_doctor = avg_wait_doctor > 0 ? Math.round((sum_wait_doctor / day_cc) / avg_wait_doctor) : 0;
+  const valid_wait_doctor = list.filter(v => v.wait_doctor_m !== null && v.wait_doctor_m > 0);
+  const wait_doctor = valid_wait_doctor.length > 0 
+    ? Math.round(valid_wait_doctor.reduce((acc, v) => acc + (v.wait_doctor_m || 0), 0) / valid_wait_doctor.length) 
+    : 0;
 
   // 4. แพทย์ตรวจ
-  const valid_doctor = list.filter(v => parseFloat(String(v.doctor_m || 0)) > 0);
-  const doctor_cc = valid_doctor.length > 0 ? Math.round(valid_doctor.reduce((acc, v) => acc + parseFloat(String(v.doctor_m)), 0) / valid_doctor.length) : 0;
+  const valid_doctor = list.filter(v => v.doctor_m !== null && parseFloat(String(v.doctor_m || 0)) > 0);
+  const doctor_cc = valid_doctor.length > 0 ? Math.round(valid_doctor.reduce((acc, v) => acc + parseFloat(String(v.doctor_m || 0)), 0) / valid_doctor.length) : 0;
 
   // 5. รอรับยา
-  const sum_wait_rx = list.reduce((acc, v) => acc + (v.wait_drug_m || 0), 0);
-  const valid_wait_rx = list.filter(v => v.wait_drug_m > 0);
-  const avg_wait_rx = valid_wait_rx.length > 0 ? (valid_wait_rx.reduce((acc, v) => acc + v.wait_drug_m, 0) / valid_wait_rx.length) : 0;
-  const wait_drug_cc = avg_wait_rx > 0 ? Math.round((sum_wait_rx / day_cc) / avg_wait_rx) : 0;
+  const valid_wait_rx = list.filter(v => v.wait_drug_m !== null && v.wait_drug_m > 0);
+  const wait_drug_cc = valid_wait_rx.length > 0 
+    ? Math.round(valid_wait_rx.reduce((acc, v) => acc + (v.wait_drug_m || 0), 0) / valid_wait_rx.length) 
+    : 0;
 
   // ผลรวมขั้นตอนเฉลี่ย
   const total_wait = wait_screen_cc + screen_cc + wait_doctor + doctor_cc + wait_drug_cc;

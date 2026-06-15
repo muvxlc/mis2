@@ -16,12 +16,14 @@ export default defineEventHandler(async (event) => {
   const endDate = query.endDate as string || new Date().toISOString().split('T')[0];
   const startTime = query.startTime as string || '08:00:00';
   const endTime = query.endTime as string || '16:00:59';
+  const vn = query.vn as string || '';
+  const bypassCache = query.bypassCache === 'true';
 
   const cacheKey = `${startDate}_${endDate}_${startTime}_${endTime}`;
   const now = Date.now();
 
-  // 1. Check Server-Side Cache
-  if (rawVisitsCache.has(cacheKey)) {
+  // 1. Check Server-Side Cache (Only if NOT querying a specific VN and NOT bypassing cache)
+  if (!vn && !bypassCache && rawVisitsCache.has(cacheKey)) {
     const cached = rawVisitsCache.get(cacheKey)!;
     if (now < cached.expiresAt) {
       console.log(`[Waiting-Time-API] Serving cached raw visits for key: ${cacheKey}`);
@@ -60,10 +62,23 @@ export default defineEventHandler(async (event) => {
     });
 
     // 4. Query Raw Patient Visits with calculated time segments and filter flags
-    console.log(`[Waiting-Time-API] Querying HOSxP database for raw visits: ${startDate} to ${endDate} (${startTime} to ${endTime})`);
+    if (vn) {
+      console.log(`[Waiting-Time-API] Querying HOSxP database for specific VN: ${vn}`);
+    } else {
+      console.log(`[Waiting-Time-API] Querying HOSxP database for raw visits: ${startDate} to ${endDate} (${startTime} to ${endTime})`);
+    }
+
+    const innerWhere = vn 
+      ? sql`o.vn = ${vn}`
+      : sql`CONCAT(o.vstdate, ' ', o.vsttime) BETWEEN ${dateTimeStart} AND ${dateTimeEnd} 
+          AND o.main_dep = '010'
+          AND o.spclty = '01'
+          AND o.vsttime BETWEEN ${startTime} AND ${endTime}`;
+
     const [visits]: any[] = await extDb.execute(sql`
       SELECT 
         o.vn,
+        o.hn,
         o.vstdate,
         o.vsttime,
         o.departmentname,
@@ -72,9 +87,17 @@ export default defineEventHandler(async (event) => {
         -- [สถิติรายบุคคล (หน่วยนาที)]
         TIMESTAMPDIFF(MINUTE, t1.service_end_datetime, t2.service_begin_datetime) AS wait_screen_m,
         ROUND(t2.service_time_second / 60, 2) AS screen_m,
-        IFNULL(TIMESTAMPDIFF(MINUTE, t2.service_end_datetime, t3.service_begin_datetime), 0) AS wait_doctor_m,
-        ROUND(IFNULL(t3.service_time_second / 60, 0), 2) AS doctor_m,
-        IFNULL(TIMESTAMPDIFF(MINUTE, t3.service_end_datetime, rx.rx_dispenser_datetime), 0) AS wait_drug_m,
+        TIMESTAMPDIFF(MINUTE, t2.service_end_datetime, t3.service_begin_datetime) AS wait_doctor_m,
+        ROUND(t3.service_time_second / 60, 2) AS doctor_m,
+        TIMESTAMPDIFF(MINUTE, t3.service_end_datetime, rx.rx_dispenser_datetime) AS wait_drug_m,
+        
+        -- [วันเวลาดิบสำหรับการเจาะลึก Timeline]
+        DATE_FORMAT(t1.service_end_datetime, '%Y-%m-%d %H:%i:%s') AS reg_end_dt,
+        DATE_FORMAT(t2.service_begin_datetime, '%Y-%m-%d %H:%i:%s') AS screen_begin_dt,
+        DATE_FORMAT(t2.service_end_datetime, '%Y-%m-%d %H:%i:%s') AS screen_end_dt,
+        DATE_FORMAT(t3.service_begin_datetime, '%Y-%m-%d %H:%i:%s') AS doc_begin_dt,
+        DATE_FORMAT(t3.service_end_datetime, '%Y-%m-%d %H:%i:%s') AS doc_end_dt,
+        DATE_FORMAT(rx.rx_dispenser_datetime, '%Y-%m-%d %H:%i:%s') AS rx_dispense_dt,
         
         -- [Flags คัดกรองสำหรับนำไปคำนวณสดฝั่งไคลเอนต์]
         IF(DAYOFWEEK(o.vstdate) IN (1, 7), 1, 0) AS is_weekend,
@@ -84,44 +107,86 @@ export default defineEventHandler(async (event) => {
       FROM (
         SELECT 
           o.vn, 
+          o.hn,
           o.vstdate,
           o.vsttime,
           s.department AS departmentname
         FROM ovst o
         JOIN kskdepartment s ON o.main_dep = s.depcode
-        WHERE CONCAT(o.vstdate, ' ', o.vsttime) BETWEEN ${dateTimeStart} AND ${dateTimeEnd} 
-          AND o.main_dep = '010'
-          AND o.spclty = '01'
-          AND o.vsttime BETWEEN ${startTime} AND ${endTime}
+        WHERE ${innerWhere}
       ) o
-      JOIN 
-        ovst_service_time t1 ON t1.vn = o.vn AND t1.ovst_service_time_type_code = 'OPD-NEW-VISIT'
-      JOIN 
-        ovst_service_time t2 ON t2.vn = o.vn AND t2.ovst_service_time_type_code = 'OPD-SCREEN'
-      LEFT JOIN 
-        ovst_service_time t3 ON t3.vn = o.vn AND t3.ovst_service_time_type_code = 'OPD-DOCTOR' 
-        AND t3.service_begin_datetime >= t2.service_end_datetime
-      LEFT JOIN
-        rx_dispenser_detail rx ON rx.vn = o.vn AND rx.rx_dispenser_type_id='4' AND rx.confirm_substock_transaction = 'Y'
-        AND rx.rx_dispenser_datetime >= t3.service_end_datetime
+      JOIN (
+        SELECT vn, MIN(service_end_datetime) AS service_end_datetime
+        FROM ovst_service_time
+        WHERE ovst_service_time_type_code = 'OPD-NEW-VISIT'
+        GROUP BY vn
+      ) t1 ON t1.vn = o.vn
+      JOIN (
+        SELECT s1.vn, s1.service_begin_datetime, s1.service_end_datetime, s1.service_time_second
+        FROM ovst_service_time s1
+        INNER JOIN (
+          SELECT vn, MIN(service_begin_datetime) AS min_begin
+          FROM ovst_service_time
+          WHERE ovst_service_time_type_code = 'OPD-SCREEN'
+          GROUP BY vn
+        ) s2 ON s1.vn = s2.vn AND s1.service_begin_datetime = s2.min_begin
+        WHERE s1.ovst_service_time_type_code = 'OPD-SCREEN'
+      ) t2 ON t2.vn = o.vn
+      LEFT JOIN (
+        SELECT s1.vn, s1.service_begin_datetime, s1.service_end_datetime, s1.service_time_second
+        FROM ovst_service_time s1
+        INNER JOIN (
+          SELECT vn, MIN(service_begin_datetime) AS min_begin
+          FROM ovst_service_time
+          WHERE ovst_service_time_type_code = 'OPD-DOCTOR'
+          GROUP BY vn
+        ) s2 ON s1.vn = s2.vn AND s1.service_begin_datetime = s2.min_begin
+        WHERE s1.ovst_service_time_type_code = 'OPD-DOCTOR'
+      ) t3 ON t3.vn = o.vn AND t3.service_begin_datetime >= t2.service_end_datetime
+      LEFT JOIN (
+        SELECT vn, MAX(rx_dispenser_datetime) AS rx_dispenser_datetime
+        FROM rx_dispenser_detail
+        WHERE rx_dispenser_type_id = '4' AND confirm_substock_transaction = 'Y'
+        GROUP BY vn
+      ) rx ON rx.vn = o.vn AND rx.rx_dispenser_datetime >= t3.service_end_datetime
       WHERE t2.service_begin_datetime >= t1.service_end_datetime
     `);
 
     const resultVisits = visits || [];
 
-    // 5. Store in Cache with smart expiration
-    const todayStr = new Date().toISOString().split('T')[0];
-    const isToday = endDate >= todayStr;
-    // Cache for 5 minutes if querying today's live data, otherwise cache for 24 hours
-    const ttlMs = isToday ? 5 * 60 * 1000 : 24 * 60 * 60 * 1000;
+    // ดึงลายเซ็นแพทย์ลงประวัติผู้ป่วยนอก (Doctor Signatures) หากเป็นเคสรายเดี่ยว
+    let doctorSigns: any[] = [];
+    if (vn) {
+      console.log(`[Waiting-Time-API] Querying doctor signatures for VN: ${vn}`);
+      const [signs]: any[] = await extDb.execute(sql`
+        SELECT 
+          d.name AS doctor_name, 
+          k.department AS department_name, 
+          DATE_FORMAT(ds.sign_datetime, '%Y-%m-%d %H:%i:%s') AS sign_datetime 
+        FROM ovst_doctor_sign ds
+        LEFT OUTER JOIN doctor d ON ds.doctor = d.code
+        LEFT OUTER JOIN kskdepartment k ON ds.depcode = k.depcode
+        WHERE ds.vn = ${vn}
+        ORDER BY ds.sign_datetime ASC
+      `);
+      doctorSigns = signs || [];
+    }
 
-    rawVisitsCache.set(cacheKey, {
-      visits: resultVisits,
-      expiresAt: now + ttlMs
-    });
+    // 5. Store in Cache with smart expiration (Only if NOT querying a specific VN)
+    if (!vn) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const isToday = endDate >= todayStr;
+      const ttlMs = isToday ? 5 * 60 * 1000 : 24 * 60 * 60 * 1000;
+
+      rawVisitsCache.set(cacheKey, {
+        visits: resultVisits,
+        expiresAt: now + ttlMs
+      });
+    }
 
     return {
       visits: resultVisits,
+      doctorSigns,
       cached: false,
       status: 'success'
     };

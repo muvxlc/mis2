@@ -14,7 +14,10 @@ const excludeAppointed = ref(false);
 const excludeLab = ref(false);
 const excludeXray = ref(false);
 
-const { data: response, refresh, status } = await useAsyncData('waiting_stats', () => $fetch('/api/hosxp/waiting-time', {
+const isBypassingCache = ref(false);
+const lastUpdated = ref<string>('');
+
+const { data: response, refresh: triggerRefresh, status } = await useAsyncData('waiting_stats', () => $fetch('/api/hosxp/waiting-time', {
     params: { 
         startDate: startDate.value, 
         endDate: endDate.value,
@@ -23,11 +26,29 @@ const { data: response, refresh, status } = await useAsyncData('waiting_stats', 
         excludeWeekends: excludeWeekends.value,
         excludeAppointed: excludeAppointed.value,
         excludeLab: excludeLab.value,
-        excludeXray: excludeXray.value
+        excludeXray: excludeXray.value,
+        bypassCache: isBypassingCache.value ? 'true' : 'false'
     }
 }), {
     watch: [startDate, endDate, startTime, endTime, excludeWeekends, excludeAppointed, excludeLab, excludeXray]
 });
+
+watch(() => response.value, (newVal) => {
+    if (newVal) {
+        lastUpdated.value = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+}, { immediate: true });
+
+const handleAnalyze = async () => {
+    isBypassingCache.value = false;
+    await triggerRefresh();
+};
+
+const handleForceSync = async () => {
+    isBypassingCache.value = true;
+    await triggerRefresh();
+    isBypassingCache.value = false;
+};
 
 const rawVisits = computed(() => response.value?.visits || []);
 
@@ -44,7 +65,7 @@ const filteredVisits = computed(() => {
 const getWidth = (val: number, max: number) => Math.min(100, (val / (max || 1)) * 100) + '%';
 
 // ช็อตช่วงเวลาสำหรับการทำงาน
-const timeSlots = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+const timeSlots = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 
 // คำนวณสดในเบราว์เซอร์จากผู้ป่วยที่คัดแยกแล้ว
 const displayHourlyScreen = computed(() => calculateHourlyScreen(filteredVisits.value, timeSlots));
@@ -71,12 +92,170 @@ const busiestHour = computed(() => {
 });
 
 const steps = computed(() => [
-    { label: 'รอซักประวัติ', val: stats.value?.รอซักประวัติ, m: stats.value?.m_wait_screen, color: 'text-teal-500', bg: 'bg-teal-50', darkBg: 'dark:bg-teal-900/20', icon: 'i-heroicons-user-plus' },
-    { label: 'ซักประวัติ', val: stats.value?.ซักประวัติ, m: stats.value?.m_screen, color: 'text-blue-500', bg: 'bg-blue-50', darkBg: 'dark:bg-blue-900/20', icon: 'i-heroicons-pencil-square' },
-    { label: 'รอพบแพทย์', val: stats.value?.รอตรวจ1, m: stats.value?.m_wait_doc1, color: 'text-[#ba895d]', bg: 'bg-[#fff8e1]', darkBg: 'dark:bg-[#ba895d]/10', icon: 'i-heroicons-user-group' },
-    { label: 'แพทย์ตรวจ', val: stats.value?.แพทย์ตรวจ, m: stats.value?.m_doc_time, color: 'text-green-500', bg: 'bg-green-50', darkBg: 'dark:bg-green-900/20', icon: 'i-heroicons-shield-check' },
-    { label: 'รอรับยา/บริการ', val: stats.value?.รอรับยา, m: stats.value?.m_wait_rx, color: 'text-orange-500', bg: 'bg-orange-50', darkBg: 'dark:bg-orange-900/20', icon: 'i-heroicons-beaker' }
+    { label: 'รอซักประวัติ', val: stats.value?.รอซักประวัติ, m: stats.value?.m_wait_screen, color: 'text-teal-500', bg: 'bg-teal-50', darkBg: 'dark:bg-teal-900/20', icon: 'i-heroicons-user-plus', key: 'wait_screen' },
+    { label: 'ซักประวัติ', val: stats.value?.ซักประวัติ, m: stats.value?.m_screen, color: 'text-blue-500', bg: 'bg-blue-50', darkBg: 'dark:bg-blue-900/20', icon: 'i-heroicons-pencil-square', key: 'screen' },
+    { label: 'รอพบแพทย์', val: stats.value?.รอตรวจ1, m: stats.value?.m_wait_doc1, color: 'text-[#ba895d]', bg: 'bg-[#fff8e1]', darkBg: 'dark:bg-[#ba895d]/10', icon: 'i-heroicons-user-group', key: 'wait_doctor' },
+    { label: 'แพทย์ตรวจ', val: stats.value?.แพทย์ตรวจ, m: stats.value?.m_doc_time, color: 'text-green-500', bg: 'bg-green-50', darkBg: 'dark:bg-green-900/20', icon: 'i-heroicons-shield-check', key: 'doctor' },
+    { label: 'รอรับยา/บริการ', val: stats.value?.รอรับยา, m: stats.value?.m_wait_rx, color: 'text-orange-500', bg: 'bg-orange-50', darkBg: 'dark:bg-orange-900/20', icon: 'i-heroicons-beaker', key: 'wait_rx' }
 ]);
+
+// Modal and details view variables
+const isModalOpen = ref(false);
+const activeStepKey = ref('');
+const activeStepLabel = ref('');
+const searchQuery = ref('');
+
+// VN Details states and helpers
+const selectedVn = ref<string | null>(null);
+const isVnModalOpen = ref(false);
+const selectedVnDetailsData = ref<any>(null);
+const selectedVnDoctorSigns = ref<any[]>([]);
+const isVnLoading = ref(false);
+
+const openVnDetails = async (vn: string) => {
+    if (!vn) return;
+    const cleanVn = vn.trim();
+    selectedVn.value = cleanVn;
+    isVnModalOpen.value = true;
+    isVnLoading.value = true;
+    selectedVnDetailsData.value = null;
+    selectedVnDoctorSigns.value = [];
+
+    // Query HOSxP directly for this VN to retrieve full timeline & doctor signatures
+    try {
+        const res = await $fetch<{ visits: any[], doctorSigns?: any[] }>('/api/hosxp/waiting-time', {
+            params: { vn: cleanVn }
+        });
+        if (res && res.visits && res.visits.length > 0) {
+            selectedVnDetailsData.value = res.visits[0];
+            selectedVnDoctorSigns.value = res.doctorSigns || [];
+        }
+    } catch (err) {
+        console.error('Error fetching VN details:', err);
+    } finally {
+        isVnLoading.value = false;
+    }
+};
+
+const searchVnInput = ref('');
+const vnSuggestions = computed(() => {
+    const q = searchVnInput.value.trim().toLowerCase();
+    if (!q) return [];
+    return filteredVisits.value
+        .filter(v => v.vn.toLowerCase().includes(q))
+        .slice(0, 5);
+});
+
+const selectSuggestedVn = (vn: string) => {
+    searchVnInput.value = '';
+    openVnDetails(vn);
+};
+
+const openDetailsModal = (step: any) => {
+    activeStepKey.value = step.key;
+    activeStepLabel.value = step.label;
+    searchQuery.value = '';
+    isModalOpen.value = true;
+};
+
+const getKpiThreshold = (key: string) => {
+    const thresholds: Record<string, number> = {
+        wait_screen: 20,
+        screen: 10,
+        wait_doctor: 15,
+        doctor: 15,
+        wait_rx: 15
+    };
+    return thresholds[key] || 20;
+};
+
+const modalVisits = computed(() => {
+    if (!activeStepKey.value) return [];
+    
+    const propMap: Record<string, string> = {
+        wait_screen: 'wait_screen_m',
+        screen: 'screen_m',
+        wait_doctor: 'wait_doctor_m',
+        doctor: 'doctor_m',
+        wait_rx: 'wait_drug_m'
+    };
+    
+    const propName = propMap[activeStepKey.value];
+    if (!propName) return [];
+    
+    let visitsList = filteredVisits.value
+        .filter(v => {
+            const val = v[propName as keyof PatientVisit];
+            if (val === null || val === undefined) return false;
+            
+            // Align with calculateStats: only average patients with active service times
+            if (activeStepKey.value === 'wait_doctor' || activeStepKey.value === 'doctor' || activeStepKey.value === 'wait_rx') {
+                return parseFloat(String(val)) > 0;
+            }
+            return true;
+        })
+        .map(v => {
+            const val = v[propName as keyof PatientVisit];
+            const numVal = parseFloat(String(val));
+            return {
+                vn: v.vn,
+                hn: v.hn,
+                vstdate: v.vstdate,
+                vsttime: v.vsttime,
+                value: numVal
+            };
+        });
+    
+    // Sort descending by value (outliers first)
+    visitsList.sort((a, b) => b.value - a.value);
+    
+    if (searchQuery.value.trim()) {
+        const q = searchQuery.value.trim().toLowerCase();
+        visitsList = visitsList.filter(v => v.vn.toLowerCase().includes(q) || (v.hn && v.hn.toLowerCase().includes(q)));
+    }
+    
+    return visitsList;
+});
+
+const modalStats = computed(() => {
+    const visits = modalVisits.value;
+    if (visits.length === 0) return { average: 0, max: 0 };
+    const values = visits.map(v => v.value);
+    const sum = values.reduce((acc, v) => acc + v, 0);
+    const average = sum / values.length;
+    const max = Math.max(...values);
+    return { average, max };
+});
+
+const exportToCSV = () => {
+    if (!activeStepLabel.value || modalVisits.value.length === 0) return;
+    
+    const headers = ['#', 'VN', 'HN', 'Date', 'Time', 'Duration_Minutes', 'Status'];
+    const rows = modalVisits.value.map((v, i) => [
+        i + 1,
+        v.vn,
+        v.hn || '',
+        v.vstdate,
+        v.vsttime,
+        Math.round(v.value),
+        v.value > getKpiThreshold(activeStepKey.value) ? 'FAIL' : 'PASS'
+    ]);
+    
+    const csvContent = [
+        headers.join(','),
+        ...rows.map(r => r.join(','))
+    ].join('\n');
+    
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${activeStepLabel.value}_${startDate.value}_to_${endDate.value}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
 
 const kpiPassRate = computed(() => {
     if (!stats.value || !stats.value.total_patients) return 0;
@@ -163,14 +342,32 @@ const peakVsNormalRatio = computed(() => {
                         <option value="early" class="dark:bg-gray-900 text-gray-800 dark:text-white">05:00 - 16:00 (วิเคราะห์เคสเช้าตรู่)</option>
                     </select>
                 </div>
-                <UButton 
-                    icon="i-heroicons-arrow-path" 
-                    @click="refresh" 
-                    :loading="status === 'pending'"
-                    class="bg-[#24695c] hover:bg-[#1a4d43] text-white rounded-2xl px-8 font-black shadow-xl shadow-[#24695c]/30 h-14 justify-center"
-                >
-                    ANALYZE
-                </UButton>
+                <div class="flex flex-col justify-center gap-2">
+                    <UButton 
+                        icon="i-heroicons-arrow-path" 
+                        @click="handleAnalyze" 
+                        :loading="status === 'pending' && !isBypassingCache"
+                        class="bg-[#24695c] hover:bg-[#1a4d43] text-white rounded-2xl px-8 font-black shadow-xl shadow-[#24695c]/30 h-14 justify-center w-full"
+                    >
+                        ANALYZE
+                    </UButton>
+                    <div class="flex flex-col items-center justify-center gap-1">
+                        <span class="text-[10px] font-bold text-gray-400 flex items-center gap-1">
+                            <UIcon :name="response?.cached ? 'i-heroicons-circle-stack' : 'i-heroicons-bolt'" class="text-xs" />
+                            {{ response?.cached ? 'แสดงข้อมูลจากแคช' : 'ดึงข้อมูลสดจาก HOSxP' }}
+                            <span v-if="lastUpdated">({{ lastUpdated }} น.)</span>
+                        </span>
+                        <button 
+                            @click="handleForceSync" 
+                            :disabled="status === 'pending'"
+                            type="button"
+                            class="text-[10px] font-black text-[#24695c] hover:text-[#1a4d43] dark:text-[#50b49f] dark:hover:text-[#6cdcb3] underline flex items-center gap-1 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                        >
+                            <UIcon name="i-heroicons-arrow-path" :class="{ 'animate-spin': status === 'pending' && isBypassingCache }" />
+                            ดึงข้อมูลล่าสุดจาก HOSxP
+                        </button>
+                    </div>
+                </div>
             </div>
             
             <!-- Decorative background elements -->
@@ -178,39 +375,87 @@ const peakVsNormalRatio = computed(() => {
             <div class="absolute -left-20 -bottom-20 w-64 h-64 bg-[#ba895d]/5 rounded-full blur-3xl"></div>
         </div>
 
-        <!-- Dynamic Analytics Filters Panel -->
-        <div class="bg-white dark:bg-gray-900 rounded-[2.5rem] p-8 shadow-sm border border-gray-100 dark:border-gray-800 space-y-6">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-50 dark:border-gray-800 pb-4">
-                <div class="flex items-center gap-3">
-                    <UIcon name="i-heroicons-adjustments-horizontal" class="text-[#24695c] text-2xl" />
-                    <span class="text-xs font-black text-gray-700 dark:text-white uppercase tracking-wider">HOSxP Dynamic Filters (ตัวกรองข้อมูลพิเศษ)</span>
+        <!-- Dynamic Filters & VN Search Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left: Dynamic Analytics Filters Panel -->
+            <div class="lg:col-span-2 bg-white dark:bg-gray-900 rounded-[2.5rem] p-8 shadow-sm border border-gray-100 dark:border-gray-800 space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-50 dark:border-gray-800 pb-4">
+                    <div class="flex items-center gap-3">
+                        <UIcon name="i-heroicons-adjustments-horizontal" class="text-[#24695c] text-2xl" />
+                        <span class="text-xs font-black text-gray-700 dark:text-white uppercase tracking-wider">HOSxP Dynamic Filters (ตัวกรองข้อมูลพิเศษ)</span>
+                    </div>
+                    <div class="flex gap-3">
+                        <UButton 
+                            size="xs" 
+                            variant="soft" 
+                            color="teal" 
+                            @click="setAllFilters(true)"
+                            class="font-black text-[10px] uppercase tracking-wider rounded-lg px-3 py-1"
+                        >
+                            เลือกทั้งหมด
+                        </UButton>
+                        <UButton 
+                            size="xs" 
+                            variant="soft" 
+                            color="gray" 
+                            @click="setAllFilters(false)"
+                            class="font-black text-[10px] uppercase tracking-wider rounded-lg px-3 py-1"
+                        >
+                            ล้างทั้งหมด
+                        </UButton>
+                    </div>
                 </div>
-                <div class="flex gap-3">
-                    <UButton 
-                        size="xs" 
-                        variant="soft" 
-                        color="teal" 
-                        @click="setAllFilters(true)"
-                        class="font-black text-[10px] uppercase tracking-wider rounded-lg px-3 py-1"
-                    >
-                        เลือกทั้งหมด
-                    </UButton>
-                    <UButton 
-                        size="xs" 
-                        variant="soft" 
-                        color="gray" 
-                        @click="setAllFilters(false)"
-                        class="font-black text-[10px] uppercase tracking-wider rounded-lg px-3 py-1"
-                    >
-                        ล้างทั้งหมด
-                    </UButton>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <UCheckbox v-model="excludeWeekends" label="กรองจันทร์ - ศุกร์" />
+                    <UCheckbox v-model="excludeAppointed" label="ไม่เอาเคสผู้ป่วยนัด" />
+                    <UCheckbox v-model="excludeLab" label="ไม่เอาเคสส่ง Lab" />
+                    <UCheckbox v-model="excludeXray" label="ไม่เอาเคสส่ง X-Ray" />
                 </div>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                <UCheckbox v-model="excludeWeekends" label="กรองจันทร์ - ศุกร์" />
-                <UCheckbox v-model="excludeAppointed" label="ไม่เอาเคสผู้ป่วยนัด" />
-                <UCheckbox v-model="excludeLab" label="ไม่เอาเคสส่ง Lab" />
-                <UCheckbox v-model="excludeXray" label="ไม่เอาเคสส่ง X-Ray" />
+            
+            <!-- Right: Direct VN Search Card -->
+            <div class="bg-white dark:bg-gray-900 rounded-[2.5rem] p-8 shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col justify-between relative group">
+                <div class="space-y-4">
+                    <div class="flex items-center gap-3">
+                        <UIcon name="i-heroicons-magnifying-glass-circle" class="text-[#ba895d] text-2xl" />
+                        <span class="text-xs font-black text-gray-700 dark:text-white uppercase tracking-wider">Direct VN Search & Timeline (ค้นหา VN โดยตรง)</span>
+                    </div>
+                    <p class="text-[11px] font-bold text-gray-400">ระบุเลขที่ VN เพื่อวิเคราะห์ขั้นตอนบริการและระยะเวลารอคอยทันที</p>
+                    
+                    <div class="relative">
+                        <input 
+                            v-model="searchVnInput" 
+                            type="text" 
+                            placeholder="ระบุ VN เช่น 69xxxxxxx" 
+                            class="w-full pl-4 pr-12 py-3 bg-[#f5f7fb] dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm font-bold text-gray-700 dark:text-white focus:outline-none focus:border-[#24695c] focus:ring-1 focus:ring-[#24695c] placeholder-gray-400"
+                            @keydown.enter="openVnDetails(searchVnInput)"
+                        />
+                        <button 
+                            @click="openVnDetails(searchVnInput)"
+                            class="absolute right-2 top-2 bottom-2 px-3 bg-[#24695c] hover:bg-[#1a4d43] text-white rounded-xl flex items-center justify-center transition-colors"
+                        >
+                            <UIcon name="i-heroicons-magnifying-glass" class="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    <!-- Autocomplete Suggestions -->
+                    <div v-if="vnSuggestions.length > 0" class="absolute left-8 right-8 mt-1 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-xl z-20 overflow-hidden divide-y divide-gray-55 dark:divide-gray-800">
+                        <div 
+                            v-for="v in vnSuggestions" 
+                            :key="v.vn" 
+                            @click="selectSuggestedVn(v.vn)"
+                            class="px-4 py-2 text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-[#f5f7fb] dark:hover:bg-gray-800/50 cursor-pointer flex justify-between items-center transition-colors"
+                        >
+                            <span class="text-[#24695c] dark:text-[#2dd4bf]">{{ v.vn }}</span>
+                            <span class="text-gray-400 font-normal">{{ v.vsttime }} ({{ Math.round((v.wait_screen_m || 0) + parseFloat(String(v.screen_m)) + v.wait_doctor_m + parseFloat(String(v.doctor_m)) + v.wait_drug_m) }} นาที)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-4 border-t border-gray-55 dark:border-gray-800 flex items-center justify-between text-[10px] font-black text-gray-400">
+                    <span>วิเคราะห์ย้อนหลังได้ไม่จำกัดวัน</span>
+                    <span class="text-[#ba895d] italic">HOSxP Live Query</span>
+                </div>
             </div>
         </div>
 
@@ -353,7 +598,9 @@ const peakVsNormalRatio = computed(() => {
 
             <!-- Row 2: Steps Visualization Row -->
             <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-8">
-                <div v-for="step in steps" :key="step.label" class="bg-white dark:bg-gray-900 rounded-[3rem] p-10 shadow-sm border border-gray-100 dark:border-gray-800 group hover:shadow-2xl hover:shadow-[#24695c]/5 hover:-translate-y-3 transition-all duration-700">
+                <div v-for="step in steps" :key="step.label" 
+                     @click="openDetailsModal(step)"
+                     class="bg-white dark:bg-gray-900 rounded-[3rem] p-10 shadow-sm border border-gray-100 dark:border-gray-800 group hover:shadow-2xl hover:shadow-[#24695c]/5 hover:-translate-y-3 cursor-pointer transition-all duration-700">
                     <div class="flex items-center justify-between mb-10">
                         <div :class="['w-16 h-16 rounded-[1.5rem] flex items-center justify-center text-3xl shadow-inner transition-all duration-500 group-hover:rounded-full group-hover:scale-110', step.bg, step.darkBg, step.color]">
                             <UIcon :name="step.icon" />
@@ -609,6 +856,258 @@ const peakVsNormalRatio = computed(() => {
                 </div>
                 <p class="text-[#2c323f] dark:text-white font-black uppercase tracking-[6px] text-xs mb-2">Analyzing HOSxP Metrics</p>
                 <p class="text-[#24695c] text-[10px] font-bold uppercase tracking-widest animate-pulse italic">Computational Insight Generation...</p>
+            </div>
+        </div>
+
+        <!-- Details Modal -->
+        <div v-if="isModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+            <!-- Backdrop -->
+            <div class="absolute inset-0 bg-gray-900/60 dark:bg-black/80 backdrop-blur-md" @click="isModalOpen = false"></div>
+            
+            <!-- Modal Box -->
+            <div class="relative bg-white dark:bg-gray-900 rounded-[2.5rem] w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl border border-gray-100 dark:border-gray-800 animate-in fade-in zoom-in-95 duration-200">
+                <!-- Header -->
+                <div class="p-8 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-2xl font-black text-[#2c323f] dark:text-white uppercase italic tracking-tight flex items-center gap-3">
+                            <span class="w-1.5 h-6 bg-[#24695c] rounded-full"></span>
+                            รายชื่อผู้ป่วย: {{ activeStepLabel }}
+                        </h3>
+                        <p class="text-xs font-bold text-gray-400 mt-1 uppercase">ข้อมูลงวดวันที่ {{ startDate }} ถึง {{ endDate }}</p>
+                    </div>
+                    
+                    <button @click="isModalOpen = false" class="w-10 h-10 rounded-full bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 transition-colors">
+                        <UIcon name="i-heroicons-x-mark" class="w-6 h-6" />
+                    </button>
+                </div>
+                
+                <!-- Quick Stats inside Modal -->
+                <div class="px-8 py-4 bg-[#f5f7fb] dark:bg-gray-800/40 border-b border-gray-100 dark:border-gray-800 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div>
+                        <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest block mb-0.5">Total Cases</span>
+                        <span class="text-xl font-black text-[#24695c] dark:text-[#2dd4bf] italic">{{ modalVisits.length }} ราย</span>
+                    </div>
+                    <div>
+                        <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest block mb-0.5">Average Time</span>
+                        <span class="text-xl font-black text-gray-700 dark:text-white italic">{{ Math.round(modalStats.average) }} นาที</span>
+                    </div>
+                    <div>
+                        <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest block mb-0.5">Max Time</span>
+                        <span class="text-xl font-black text-red-500 dark:text-rose-400 italic">{{ Math.round(modalStats.max) }} นาที</span>
+                    </div>
+                    <div>
+                        <span class="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest block mb-0.5">SLA Target</span>
+                        <span class="text-xl font-black text-amber-600 dark:text-amber-400 italic">&le; {{ getKpiThreshold(activeStepKey) }} นาที</span>
+                    </div>
+                </div>
+
+                <!-- Search and Filters -->
+                <div class="p-8 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div class="relative flex-1 max-w-md">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
+                            <UIcon name="i-heroicons-magnifying-glass" class="w-5 h-5" />
+                        </span>
+                        <input v-model="searchQuery" type="text" placeholder="ค้นหาเลขที่ลงทะเบียน (VN)..." class="w-full pl-10 pr-4 py-2.5 bg-[#f5f7fb] dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-white focus:outline-none focus:border-[#24695c] focus:ring-1 focus:ring-[#24695c] placeholder-gray-400" />
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <UButton icon="i-heroicons-arrow-down-tray" size="sm" color="teal" variant="soft" class="font-black text-[10px] uppercase tracking-wider rounded-xl py-2.5 px-4" @click="exportToCSV">
+                            Export CSV
+                        </UButton>
+                    </div>
+                </div>
+
+                <!-- Table Content -->
+                <div class="flex-1 overflow-y-auto px-8 pb-8 custom-scrollbar">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-gray-100 dark:border-gray-800">
+                                <th class="pb-3 text-[9px] font-black text-gray-400 uppercase tracking-widest w-12">#</th>
+                                <th class="pb-3 text-[9px] font-black text-gray-400 uppercase tracking-widest">VN (เลขทะเบียน)</th>
+                                <th class="pb-3 text-[9px] font-black text-gray-400 uppercase tracking-widest">HN</th>
+                                <th class="pb-3 text-[9px] font-black text-gray-400 uppercase tracking-widest">วันที่รับบริการ</th>
+                                <th class="pb-3 text-[9px] font-black text-gray-400 uppercase tracking-widest">เวลาคิว</th>
+                                <th class="pb-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-right">เวลาดำเนินการ (นาที)</th>
+                                <th class="pb-3 text-[9px] font-black text-gray-400 uppercase tracking-widest text-center">สถานะ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(v, index) in modalVisits" :key="v.vn" class="border-b border-gray-55 dark:border-gray-800/50 hover:bg-[#f5f7fb]/40 dark:hover:bg-gray-800/20 transition-colors">
+                                <td class="py-4 text-xs font-bold text-gray-400 tabular-nums">{{ index + 1 }}</td>
+                                <td class="py-4 text-xs font-black text-[#24695c] dark:text-[#2dd4bf] hover:underline cursor-pointer tabular-nums" @click="openVnDetails(v.vn)">
+                                    {{ v.vn }}
+                                </td>
+                                <td class="py-4 text-xs font-bold text-gray-700 dark:text-gray-300 tabular-nums">
+                                    {{ v.hn }}
+                                </td>
+                                <td class="py-4 text-xs font-bold text-gray-500 dark:text-gray-400">{{ v.vstdate }}</td>
+                                <td class="py-4 text-xs font-bold text-gray-500 dark:text-gray-400 tabular-nums">{{ v.vsttime }}</td>
+                                <td class="py-4 text-xs font-black text-right tabular-nums" :class="v.value > getKpiThreshold(activeStepKey) ? 'text-red-500 dark:text-rose-400' : 'text-green-500 dark:text-emerald-400'">
+                                    {{ Math.round(v.value) }} นาที
+                                </td>
+                                <td class="py-4 text-center">
+                                    <span v-if="v.value > getKpiThreshold(activeStepKey)" class="px-2 py-0.5 rounded-md bg-red-50 dark:bg-red-950/20 text-[9px] font-black text-red-500 uppercase tracking-wider">FAIL</span>
+                                    <span v-else class="px-2 py-0.5 rounded-md bg-green-50 dark:bg-green-950/20 text-[9px] font-black text-green-500 uppercase tracking-wider">PASS</span>
+                                </td>
+                            </tr>
+                            <tr v-if="modalVisits.length === 0">
+                                <td colspan="7" class="py-12 text-center text-xs font-bold text-gray-400 uppercase tracking-wider">
+                                    ไม่พบข้อมูลผู้ป่วยสำหรับรายการนี้
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Patient VN Timeline Modal -->
+        <div v-if="isVnModalOpen" class="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
+            <!-- Backdrop -->
+            <div class="absolute inset-0 bg-gray-900/60 dark:bg-black/80 backdrop-blur-md" @click="isVnModalOpen = false"></div>
+            
+            <!-- Modal Box -->
+            <div class="relative bg-white dark:bg-gray-900 rounded-[2.5rem] w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col shadow-2xl border border-gray-100 dark:border-gray-800 animate-in fade-in zoom-in-95 duration-200">
+                <!-- Header -->
+                <div class="p-8 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-xl font-black text-[#2c323f] dark:text-white uppercase italic tracking-tight flex items-center gap-3">
+                            <span class="w-1.5 h-6 bg-[#ba895d] rounded-full"></span>
+                            Timeline ผู้ป่วย: {{ selectedVn }}
+                        </h3>
+                        <p class="text-xs font-bold text-gray-400 mt-1 uppercase">HN: {{ selectedVnDetailsData?.hn || '-' }} | เลขที่ลงทะเบียนผู้ป่วยนอก (OPD VN)</p>
+                    </div>
+                    
+                    <button @click="isVnModalOpen = false" class="w-10 h-10 rounded-full bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 transition-colors">
+                        <UIcon name="i-heroicons-x-mark" class="w-6 h-6" />
+                    </button>
+                </div>
+                
+                <!-- Timeline Content -->
+                <div class="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-6">
+                    <!-- Loading State -->
+                    <div v-if="isVnLoading" class="py-20 flex flex-col items-center justify-center">
+                        <div class="w-12 h-12 border-4 border-[#24695c] border-t-transparent rounded-full animate-spin mb-4"></div>
+                        <p class="text-sm font-bold text-gray-500 dark:text-gray-400">กำลังดึงข้อมูลขั้นตอนบริการจาก HOSxP...</p>
+                    </div>
+                    
+                    <!-- Not Found State -->
+                    <div v-else-if="!selectedVnDetailsData" class="py-20 flex flex-col items-center justify-center text-center">
+                        <UIcon name="i-heroicons-exclamation-triangle" class="text-4xl text-rose-500 mb-4" />
+                        <p class="text-sm font-black text-gray-700 dark:text-white">ไม่พบข้อมูลขั้นตอนของ VN นี้</p>
+                        <p class="text-xs font-bold text-gray-400 mt-2 max-w-xs">โปรดตรวจสอบว่าระบุหมายเลขถูกต้อง หรือผู้ป่วยมีการเข้าสู่กระบวนการที่จุดบริการหลักครบถ้วนหรือไม่</p>
+                    </div>
+
+                    <!-- Timeline Content Ready -->
+                    <template v-else>
+                        <div class="flex justify-between items-center bg-[#f5f7fb] dark:bg-gray-800/40 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 text-xs font-bold">
+                            <span class="text-gray-400">วันที่รับบริการ: {{ selectedVnDetailsData.vstdate }}</span>
+                            <span class="text-gray-400">เวลาคิว: {{ selectedVnDetailsData.vsttime }}</span>
+                        </div>
+
+                        <!-- Timeline Steps -->
+                        <div class="relative pl-8 border-l-2 border-gray-100 dark:border-gray-800 ml-4 space-y-8 py-2">
+                            
+                            <!-- Step 1: ลงทะเบียน -->
+                            <div class="relative">
+                                <span class="absolute -left-[41px] top-0.5 w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-800 border-4 border-white dark:border-gray-900 flex items-center justify-center text-[10px] font-black text-gray-500">1</span>
+                                <div>
+                                    <h4 class="text-sm font-black text-[#2c323f] dark:text-white">ลงทะเบียนผู้ป่วยนอกเสร็จสิ้น</h4>
+                                    <p class="text-[11px] font-bold text-gray-400 mt-0.5">เวลา: {{ selectedVnDetailsData.reg_end_dt ? selectedVnDetailsData.reg_end_dt.split(' ')[1] : '-' }}</p>
+                                </div>
+                            </div>
+
+                            <!-- Transition 1: รอซักประวัติ -->
+                            <div class="bg-teal-50/50 dark:bg-teal-950/10 border border-teal-100/30 dark:border-teal-900/20 p-3 rounded-xl flex items-center justify-between text-xs">
+                                <span class="font-bold text-teal-600 dark:text-teal-400 flex items-center gap-1">
+                                    <UIcon name="i-heroicons-clock" /> รอซักประวัติ
+                                </span>
+                                <span class="font-black text-[#2c323f] dark:text-white tabular-nums">{{ Math.round(selectedVnDetailsData.wait_screen_m || 0) }} นาที</span>
+                            </div>
+
+                            <!-- Step 2: ซักประวัติ -->
+                            <div class="relative">
+                                <span class="absolute -left-[41px] top-0.5 w-6 h-6 rounded-full bg-teal-500 border-4 border-white dark:border-gray-900 flex items-center justify-center text-[10px] font-black text-white shadow-lg shadow-teal-500/20">2</span>
+                                <div>
+                                    <h4 class="text-sm font-black text-[#2c323f] dark:text-white">ซักประวัติ / คัดกรอง</h4>
+                                    <p class="text-[11px] font-bold text-gray-400 mt-0.5">
+                                        เริ่ม: {{ selectedVnDetailsData.screen_begin_dt ? selectedVnDetailsData.screen_begin_dt.split(' ')[1] : '-' }} &rarr; 
+                                        เสร็จ: {{ selectedVnDetailsData.screen_end_dt ? selectedVnDetailsData.screen_end_dt.split(' ')[1] : '-' }}
+                                    </p>
+                                    <p class="text-[11px] font-bold text-teal-600 dark:text-teal-400 mt-1">ระยะเวลาให้บริการ: {{ Math.round(parseFloat(String(selectedVnDetailsData.screen_m))) }} นาที</p>
+                                </div>
+                            </div>
+
+                            <!-- Transition 2: รอพบแพทย์ -->
+                            <div class="bg-[#fff8e1]/60 dark:bg-[#ba895d]/10 border border-[#fff8e1] dark:border-[#ba895d]/20 p-3 rounded-xl flex items-center justify-between text-xs">
+                                <span class="font-bold text-[#ba895d] flex items-center gap-1">
+                                    <UIcon name="i-heroicons-clock" /> รอพบแพทย์
+                                </span>
+                                <span class="font-black text-[#2c323f] dark:text-white tabular-nums">{{ Math.round(selectedVnDetailsData.wait_doctor_m) }} นาที</span>
+                            </div>
+
+                            <!-- Step 3: แพทย์ตรวจ -->
+                            <div class="relative">
+                                <span class="absolute -left-[41px] top-0.5 w-6 h-6 rounded-full bg-green-500 border-4 border-white dark:border-gray-900 flex items-center justify-center text-[10px] font-black text-white shadow-lg shadow-green-500/20">3</span>
+                                <div>
+                                    <h4 class="text-sm font-black text-[#2c323f] dark:text-white">แพทย์ตรวจวินิจฉัย</h4>
+                                    <p class="text-[11px] font-bold text-gray-400 mt-0.5">
+                                        เริ่ม: {{ selectedVnDetailsData.doc_begin_dt ? selectedVnDetailsData.doc_begin_dt.split(' ')[1] : '-' }} &rarr; 
+                                        เสร็จ: {{ selectedVnDetailsData.doc_end_dt ? selectedVnDetailsData.doc_end_dt.split(' ')[1] : '-' }}
+                                    </p>
+                                    <p class="text-[11px] font-bold text-green-600 dark:text-green-400 mt-1">ระยะเวลาให้บริการ: {{ Math.round(parseFloat(String(selectedVnDetailsData.doctor_m))) }} นาที</p>
+                                </div>
+                            </div>
+
+                            <!-- Transition 3: รอรับยา -->
+                            <div class="bg-orange-50/50 dark:bg-orange-950/10 border border-orange-100/30 dark:border-orange-900/20 p-3 rounded-xl flex items-center justify-between text-xs">
+                                <span class="font-bold text-orange-600 dark:text-orange-400 flex items-center gap-1">
+                                    <UIcon name="i-heroicons-clock" /> รอรับยา/บริการ
+                                </span>
+                                <span class="font-black text-[#2c323f] dark:text-white tabular-nums">{{ Math.round(selectedVnDetailsData.wait_drug_m) }} นาที</span>
+                            </div>
+
+                            <!-- Step 4: รับยาเสร็จสิ้น -->
+                            <div class="relative">
+                                <span class="absolute -left-[41px] top-0.5 w-6 h-6 rounded-full bg-orange-500 border-4 border-white dark:border-gray-900 flex items-center justify-center text-[10px] font-black text-white shadow-lg shadow-orange-500/20">4</span>
+                                <div>
+                                    <h4 class="text-sm font-black text-[#2c323f] dark:text-white">รับยาและเสร็จสิ้นบริการ</h4>
+                                    <p class="text-[11px] font-bold text-gray-400 mt-0.5">เวลาจ่ายเสร็จสิ้น: {{ selectedVnDetailsData.rx_dispense_dt ? selectedVnDetailsData.rx_dispense_dt.split(' ')[1] : '-' }}</p>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- Doctor Signatures section -->
+                        <div v-if="selectedVnDoctorSigns && selectedVnDoctorSigns.length > 0" class="space-y-4 pt-6 border-t border-gray-150 dark:border-gray-800">
+                            <h4 class="text-xs font-black text-[#ba895d] uppercase tracking-wider flex items-center gap-2">
+                                <UIcon name="i-heroicons-pencil-square" class="text-base" />
+                                การลงลายมือชื่อแพทย์ (Doctor Signatures)
+                            </h4>
+                            <div class="space-y-3">
+                                <div v-for="(ds, idx) in selectedVnDoctorSigns" :key="idx" class="bg-[#f5f7fb]/60 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800 p-4 rounded-[1.2rem] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-full bg-[#ba895d]/10 flex items-center justify-center text-[#ba895d] shrink-0">
+                                            <UIcon name="i-heroicons-user" class="w-4 h-4" />
+                                        </div>
+                                        <div>
+                                            <p class="font-black text-[#2c323f] dark:text-white">{{ ds.doctor_name || 'ไม่ระบุชื่อแพทย์' }}</p>
+                                            <p class="text-[10px] font-bold text-gray-400 mt-0.5">{{ ds.department_name || 'ไม่ระบุแผนก' }}</p>
+                                        </div>
+                                    </div>
+                                    <span class="font-bold text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 px-3 py-1 rounded-xl border border-gray-100 dark:border-gray-700/80 tabular-nums self-end sm:self-center">
+                                        {{ ds.sign_datetime ? ds.sign_datetime.split(' ')[1] : '-' }} น.
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Total Journey Footer -->
+                        <div class="bg-gradient-to-br from-[#2c323f] to-[#1a1a2e] text-white p-5 rounded-2xl flex items-center justify-between shadow-xl">
+                            <span class="text-xs font-black uppercase tracking-wider text-white/55">เวลารวมทั้งหมดใน รพ.</span>
+                            <span class="text-2xl font-black italic tabular-nums">{{ Math.round((selectedVnDetailsData.wait_screen_m || 0) + parseFloat(String(selectedVnDetailsData.screen_m)) + selectedVnDetailsData.wait_doctor_m + parseFloat(String(selectedVnDetailsData.doctor_m)) + selectedVnDetailsData.wait_drug_m) }} นาที</span>
+                        </div>
+                    </template>
+                </div>
             </div>
         </div>
     </div>

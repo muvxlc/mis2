@@ -192,27 +192,26 @@ describe('OPD 7 Waiting Calculator Utility Tests', () => {
       const stats = calculateStats(list);
 
       expect(stats.total_patients).toBe(2);
-      // wait_screen sum is 10 + 20 = 30. Day count = 1 (both same date).
+      // wait_screen sum is 10 + 20 = 30.
       // Average wait screen of valid is (10+20)/2 = 15.
-      // wait_screen_cc = (30 / 1) / 15 = 2.
-      expect(stats.m_wait_screen).toBe(2);
-      expect(stats['รอซักประวัติ']).toBe('2:00');
+      expect(stats.m_wait_screen).toBe(15);
+      expect(stats['รอซักประวัติ']).toBe('15:00');
 
       // screen_cc = (5 + 5.5) / 2 = 5.25 -> rounded to 5
       expect(stats.m_screen).toBe(5);
 
-      // doctor wait: 15 + 30 = 45. Avg = 22.5. cc = 45 / 22.5 = 2.
-      expect(stats.m_wait_doc1).toBe(2);
+      // doctor wait: (15 + 30) / 2 = 22.5 -> rounded to 23
+      expect(stats.m_wait_doc1).toBe(23);
 
       // doctor time: (10 + 10.5) / 2 = 10.25 -> rounded to 10
       expect(stats.m_doc_time).toBe(10);
 
-      // drug wait: 20 + 10 = 30. Avg = 15. cc = 30 / 15 = 2.
-      expect(stats.m_wait_rx).toBe(2);
+      // drug wait: (20 + 10) / 2 = 15
+      expect(stats.m_wait_rx).toBe(15);
 
-      // total_all = 2 + 5 + 2 + 10 + 2 = 21
-      expect(stats.m_total_all).toBe(21);
-      expect(stats.total_all).toBe('21:00');
+      // total_all = 15 + 5 + 23 + 10 + 15 = 68
+      expect(stats.m_total_all).toBe(68);
+      expect(stats.total_all).toBe('68:00');
 
       // KPI pass rate: visit 1 total = 10+5+15+10+20 = 60 (Pass).
       // visit 2 total = 20+5.5+30+10.5+10 = 76 (Fail).
