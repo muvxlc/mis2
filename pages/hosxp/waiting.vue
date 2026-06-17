@@ -4,9 +4,9 @@ const startDate = ref(today);
 const endDate = ref(today);
 
 // การสลับช่วงเวลาสำหรับใช้วิเคราะห์ปัญหา (ดีฟอลต์เป็น standard 08:00 - 16:00)
-const analysisPeriod = ref('standard'); // 'standard' | 'early'
-const startTime = computed(() => analysisPeriod.value === 'early' ? '05:00:00' : '08:00:00');
-const endTime = computed(() => '16:00:59');
+const analysisPeriod = ref('standard'); // 'standard' | 'early' | 'full'
+const startTime = computed(() => (analysisPeriod.value === 'early' || analysisPeriod.value === 'full') ? '05:00:00' : '08:00:00');
+const endTime = computed(() => analysisPeriod.value === 'full' ? '23:59:59' : '16:00:59');
 
 // 5 ตัวกรอง Reactive อัจฝริยะสำหรับคัดกรองข้อมูลสถิติ HOSxP (เริ่มต้นเป็น false เพื่อให้โหลดข้อมูลทั้งหมดก่อนเมื่อเข้าครั้งแรก)
 const excludeWeekends = ref(false);
@@ -66,12 +66,17 @@ const filteredVisits = computed(() => {
 const getWidth = (val: number, max: number) => Math.min(100, (val / (max || 1)) * 100) + '%';
 
 // ช็อตช่วงเวลาสำหรับการทำงาน
-const timeSlots = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+const timeSlots = computed(() => {
+    if (analysisPeriod.value === 'full') {
+        return [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+    }
+    return [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+});
 
 // คำนวณสดในเบราว์เซอร์จากผู้ป่วยที่คัดแยกแล้ว
-const displayHourlyScreen = computed(() => calculateHourlyScreen(filteredVisits.value, timeSlots));
-const displayHourlyDoctor = computed(() => calculateHourlyDoctor(filteredVisits.value, timeSlots));
-const displayTraffic = computed(() => calculateTraffic(filteredVisits.value, timeSlots));
+const displayHourlyScreen = computed(() => calculateHourlyScreen(filteredVisits.value, timeSlots.value));
+const displayHourlyDoctor = computed(() => calculateHourlyDoctor(filteredVisits.value, timeSlots.value));
+const displayTraffic = computed(() => calculateTraffic(filteredVisits.value, timeSlots.value));
 const stats = computed(() => calculateStats(filteredVisits.value, undefined, includeNoDrug.value));
 
 // ตัวจัดทริกเกอร์เลือกทั้งหมด / ล้างทั้งหมด
@@ -93,6 +98,10 @@ const busiestHour = computed(() => {
     return sorted[0].total > 0 ? sorted[0] : null;
 });
 
+const shouldShowBreakdown = computed(() => {
+    return enableDemoBreakdown.value || startDate.value >= '2026-06-17' || filteredVisits.value.some(v => v.wait_post_doc_m !== null || v.post_doc_m !== null);
+});
+
 const steps = computed(() => {
     const list = [
         { label: 'รอซักประวัติ', val: stats.value?.รอซักประวัติ, m: stats.value?.m_wait_screen, color: 'text-teal-500', bg: 'bg-teal-50', darkBg: 'dark:bg-teal-900/20', icon: 'i-heroicons-user-plus', key: 'wait_screen' },
@@ -101,9 +110,7 @@ const steps = computed(() => {
         { label: 'แพทย์ตรวจ', val: stats.value?.แพทย์ตรวจ, m: stats.value?.m_doc_time, color: 'text-green-500', bg: 'bg-green-50', darkBg: 'dark:bg-green-900/20', icon: 'i-heroicons-shield-check', key: 'doctor' }
     ];
 
-    const hasPostDocData = filteredVisits.value.some(v => v.wait_post_doc_m !== null || v.post_doc_m !== null);
-
-    if (hasPostDocData) {
+    if (shouldShowBreakdown.value) {
         list.push(
             { label: 'รอหลังพบแพทย์', val: stats.value?.รอหลังพบแพทย์ || '00:00', m: stats.value?.m_wait_post_doc || 0, color: 'text-gray-500', bg: 'bg-gray-50', darkBg: 'dark:bg-gray-800/40', icon: 'i-heroicons-clock', key: 'wait_post_doc' },
             { label: 'บริการหลังพบแพทย์', val: stats.value?.บริการหลังพบแพทย์ || '00:00', m: stats.value?.m_post_doc || 0, color: 'text-purple-500', bg: 'bg-purple-50', darkBg: 'dark:bg-purple-900/20', icon: 'i-heroicons-clipboard-document-check', key: 'post_doc' },
@@ -126,9 +133,7 @@ const stackedBarSegments = computed(() => {
         { val: stats.value?.m_doc_time || 0, color: 'bg-green-400', label: 'แพทย์ตรวจ' }
     ];
 
-    const hasPostDocData = filteredVisits.value.some(v => v.wait_post_doc_m !== null || v.post_doc_m !== null);
-
-    if (hasPostDocData) {
+    if (shouldShowBreakdown.value) {
         segments.push(
             { val: stats.value?.m_wait_post_doc || 0, color: 'bg-gray-400', label: 'รอหลังพบแพทย์' },
             { val: stats.value?.m_post_doc || 0, color: 'bg-purple-400', label: 'บริการหลังพบแพทย์' },
@@ -440,6 +445,7 @@ const safeNum = (val: any): number => {
                     <select v-model="analysisPeriod" class="bg-transparent border-none font-black text-[#2c323f] dark:text-white focus:ring-0 outline-none text-sm cursor-pointer pr-8 py-0 w-full">
                         <option value="standard" class="dark:bg-gray-900 text-gray-800 dark:text-white">08:00 - 16:00 (เวลามาตรฐาน)</option>
                         <option value="early" class="dark:bg-gray-900 text-gray-800 dark:text-white">05:00 - 16:00 (วิเคราะห์เคสเช้าตรู่)</option>
+                        <option value="full" class="dark:bg-gray-900 text-gray-800 dark:text-white">05:00 - 23:59 (เวลาบริการทั้งหมด/เคสนอกเวลา)</option>
                     </select>
                 </div>
                 <div class="flex flex-col justify-center gap-2">
