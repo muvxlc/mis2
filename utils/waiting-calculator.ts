@@ -96,7 +96,7 @@ export function filterVisits(visits: PatientVisit[], filters: WaitingFilters): P
 /**
  * Aggregate stats from a filtered visit list.
  */
-export function calculateStats(list: PatientVisit[], defaultDeptName = 'จุดซักประวัติผู้ป่วยนอก') {
+export function calculateStats(list: PatientVisit[], defaultDeptName = 'จุดซักประวัติผู้ป่วยนอก', includeNoDrug = false) {
   const total_patients = list.length;
   const uniqueDates = new Set(list.map(v => v.vstdate));
   const day_cc = Math.max(1, uniqueDates.size);
@@ -145,7 +145,9 @@ export function calculateStats(list: PatientVisit[], defaultDeptName = 'จุ�
   const doctor_cc = valid_doctor.length > 0 ? Math.round(valid_doctor.reduce((acc, v) => acc + parseFloat(String(v.doctor_m || 0)), 0) / valid_doctor.length) : 0;
 
   // 5. รอรับยา
-  const valid_wait_rx = list.filter(v => v.wait_drug_m !== null && v.wait_drug_m > 0);
+  const valid_wait_rx = includeNoDrug 
+    ? list 
+    : list.filter(v => v.wait_drug_m !== null && v.wait_drug_m > 0);
   const wait_drug_cc = valid_wait_rx.length > 0 
     ? Math.round(valid_wait_rx.reduce((acc, v) => acc + (v.wait_drug_m || 0), 0) / valid_wait_rx.length) 
     : 0;

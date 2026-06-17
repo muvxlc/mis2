@@ -14,6 +14,7 @@ const excludeAppointed = ref(false);
 const excludeLab = ref(false);
 const excludeXray = ref(false);
 const excludeProcedure = ref(false);
+const includeNoDrug = ref(false);
 
 const isBypassingCache = ref(false);
 const lastUpdated = ref<string>('');
@@ -69,7 +70,7 @@ const timeSlots = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 const displayHourlyScreen = computed(() => calculateHourlyScreen(filteredVisits.value, timeSlots));
 const displayHourlyDoctor = computed(() => calculateHourlyDoctor(filteredVisits.value, timeSlots));
 const displayTraffic = computed(() => calculateTraffic(filteredVisits.value, timeSlots));
-const stats = computed(() => calculateStats(filteredVisits.value));
+const stats = computed(() => calculateStats(filteredVisits.value, undefined, includeNoDrug.value));
 
 // ตัวจัดทริกเกอร์เลือกทั้งหมด / ล้างทั้งหมด
 const setAllFilters = (val: boolean) => {
@@ -185,6 +186,9 @@ const modalVisits = computed(() => {
     let visitsList = filteredVisits.value
         .filter(v => {
             const val = v[propName as keyof PatientVisit];
+            if (activeStepKey.value === 'wait_rx' && includeNoDrug.value) {
+                return true;
+            }
             if (val === null || val === undefined) return false;
             
             // Align with calculateStats: only average patients with active service times
@@ -195,7 +199,7 @@ const modalVisits = computed(() => {
         })
         .map(v => {
             const val = v[propName as keyof PatientVisit];
-            const numVal = parseFloat(String(val));
+            const numVal = val === null || val === undefined ? 0 : parseFloat(String(val));
             return {
                 vn: v.vn,
                 hn: v.hn,
@@ -454,6 +458,7 @@ const safeNum = (val: any): number => {
                     <UCheckbox v-model="excludeLab" label="ไม่เอาเคสส่ง Lab" />
                     <UCheckbox v-model="excludeXray" label="ไม่เอาเคสส่ง X-Ray" />
                     <UCheckbox v-model="excludeProcedure" label="ไม่เอาเคสทำหัตถการ" />
+                    <UCheckbox v-model="includeNoDrug" label="คำนวณคนที่ไม่ได้รับยาด้วย (คิดเป็น 0 นาที)" />
                 </div>
             </div>
             
