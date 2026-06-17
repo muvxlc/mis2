@@ -8,13 +8,14 @@ const analysisPeriod = ref('standard'); // 'standard' | 'early'
 const startTime = computed(() => analysisPeriod.value === 'early' ? '05:00:00' : '08:00:00');
 const endTime = computed(() => '16:00:59');
 
-// 5 ตัวกรอง Reactive อัจฉริยะสำหรับคัดกรองข้อมูลสถิติ HOSxP (เริ่มต้นเป็น false เพื่อให้โหลดข้อมูลทั้งหมดก่อนเมื่อเข้าครั้งแรก)
+// 5 ตัวกรอง Reactive อัจฝริยะสำหรับคัดกรองข้อมูลสถิติ HOSxP (เริ่มต้นเป็น false เพื่อให้โหลดข้อมูลทั้งหมดก่อนเมื่อเข้าครั้งแรก)
 const excludeWeekends = ref(false);
 const excludeAppointed = ref(false);
 const excludeLab = ref(false);
 const excludeXray = ref(false);
 const excludeProcedure = ref(false);
 const includeNoDrug = ref(false);
+const enableDemoBreakdown = ref(true); // เริ่มต้นเป็น true เพื่อให้การทำเดโมแสดงผลคาร์ดใหม่บนฐานข้อมูลตัวอย่างได้ทันที
 
 const isBypassingCache = ref(false);
 const lastUpdated = ref<string>('');
@@ -25,10 +26,11 @@ const { data: response, refresh: triggerRefresh, status } = await useAsyncData('
         endDate: endDate.value,
         startTime: startTime.value,
         endTime: endTime.value,
-        bypassCache: isBypassingCache.value ? 'true' : 'false'
+        bypassCache: isBypassingCache.value ? 'true' : 'false',
+        demoMode: enableDemoBreakdown.value ? 'true' : 'false'
     }
 }), {
-    watch: [startDate, endDate, startTime, endTime]
+    watch: [startDate, endDate, startTime, endTime, enableDemoBreakdown]
 });
 
 watch(() => response.value, (newVal) => {
@@ -510,6 +512,7 @@ const safeNum = (val: any): number => {
                     <UCheckbox v-model="excludeXray" label="ไม่เอาเคสส่ง X-Ray" />
                     <UCheckbox v-model="excludeProcedure" label="ไม่เอาเคสทำหัตถการ" />
                     <UCheckbox v-model="includeNoDrug" label="คำนวณคนที่ไม่ได้รับยาด้วย (คิดเป็น 0 นาที)" />
+                    <UCheckbox v-model="enableDemoBreakdown" label="เปิดแยกห้องหลังพบแพทย์ 042 (รวมข้อมูลย้อนหลัง)" />
                 </div>
             </div>
             

@@ -18,8 +18,10 @@ export default defineEventHandler(async (event) => {
   const endTime = query.endTime as string || '16:00:59';
   const vn = query.vn as string || '';
   const bypassCache = query.bypassCache === 'true';
+  const demoMode = query.demoMode === 'true';
+  const isSingleVn = !!vn;
 
-  const cacheKey = `${startDate}_${endDate}_${startTime}_${endTime}`;
+  const cacheKey = `${startDate}_${endDate}_${startTime}_${endTime}_demo_${demoMode}`;
   const now = Date.now();
 
   // 1. Check Server-Side Cache (Only if NOT querying a specific VN and NOT bypassing cache)
@@ -90,18 +92,18 @@ export default defineEventHandler(async (event) => {
         TIMESTAMPDIFF(MINUTE, t2.service_end_datetime, t3.service_begin_datetime) AS wait_doctor_m,
         ROUND(t3.service_time_second / 60, 2) AS doctor_m,
         
-        -- รอรับยาและหลังพบแพทย์ แบ่งตามเงื่อนไขวันที่และประเภทการส่งตรวจ
-        IF(o.vstdate >= '2026-06-17' AND t4.service_begin_datetime IS NOT NULL,
+        -- รอรับยาและหลังพบแพทย์ แบ่งตามเงื่อนไขวันที่และประเภทการส่งตรวจ (หรือ Demo Mode / ค้นหารายเคส)
+        IF((o.vstdate >= '2026-06-17' OR ${demoMode ? 1 : 0} = 1 OR ${isSingleVn ? 1 : 0} = 1) AND t4.service_begin_datetime IS NOT NULL,
            TIMESTAMPDIFF(MINUTE, t3.service_end_datetime, t4.service_begin_datetime),
            NULL
         ) AS wait_post_doc_m,
         
-        IF(o.vstdate >= '2026-06-17' AND t4.service_begin_datetime IS NOT NULL,
+        IF((o.vstdate >= '2026-06-17' OR ${demoMode ? 1 : 0} = 1 OR ${isSingleVn ? 1 : 0} = 1) AND t4.service_begin_datetime IS NOT NULL,
            ROUND(t4.service_time_second / 60, 2),
            NULL
         ) AS post_doc_m,
         
-        IF(o.vstdate >= '2026-06-17' AND t4.service_begin_datetime IS NOT NULL,
+        IF((o.vstdate >= '2026-06-17' OR ${demoMode ? 1 : 0} = 1 OR ${isSingleVn ? 1 : 0} = 1) AND t4.service_begin_datetime IS NOT NULL,
            TIMESTAMPDIFF(MINUTE, t4.service_end_datetime, rx.rx_dispenser_datetime),
            TIMESTAMPDIFF(MINUTE, t3.service_end_datetime, rx.rx_dispenser_datetime)
         ) AS wait_drug_m,
