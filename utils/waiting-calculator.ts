@@ -22,6 +22,8 @@ export interface PatientVisit {
   screen_m: string | number | null;
   wait_doctor_m: number | null;
   doctor_m: string | number | null;
+  wait_post_doc_m?: number | null;
+  post_doc_m?: string | number | null;
   wait_drug_m: number | null;
   is_weekend: number;
   is_appointed: number;
@@ -33,6 +35,8 @@ export interface PatientVisit {
   screen_end_dt?: string | null;
   doc_begin_dt?: string | null;
   doc_end_dt?: string | null;
+  post_doc_begin_dt?: string | null;
+  post_doc_end_dt?: string | null;
   rx_dispense_dt?: string | null;
 }
 
@@ -63,6 +67,8 @@ export function filterVisits(visits: PatientVisit[], filters: WaitingFilters): P
     const s = Math.max(0, Math.min(480, parseFloat(String(v.screen_m || 0))));
     const wd = Math.max(0, Math.min(480, v.wait_doctor_m || 0));
     const d = Math.max(0, Math.min(480, parseFloat(String(v.doctor_m || 0))));
+    const wpd = v.wait_post_doc_m === null || v.wait_post_doc_m === undefined ? null : Math.max(0, Math.min(480, v.wait_post_doc_m));
+    const pd = v.post_doc_m === null || v.post_doc_m === undefined ? null : Math.max(0, Math.min(480, parseFloat(String(v.post_doc_m || 0))));
     const wrx = Math.max(0, Math.min(480, v.wait_drug_m || 0));
 
     return {
@@ -71,6 +77,8 @@ export function filterVisits(visits: PatientVisit[], filters: WaitingFilters): P
       screen_m: s,
       wait_doctor_m: wd,
       doctor_m: d,
+      wait_post_doc_m: wpd,
+      post_doc_m: pd,
       wait_drug_m: wrx
     };
   });
@@ -109,6 +117,8 @@ export function calculateStats(list: PatientVisit[], defaultDeptName = 'จุ�
       'รอตรวจ1': '00:00',
       'รอตรวจ2': '00:00',
       'แพทย์ตรวจ': '00:00',
+      'รอหลังพบแพทย์': '00:00',
+      'บริการหลังพบแพทย์': '00:00',
       'รอรับยา': '00:00',
       'total_all': '00:00',
       m_wait_screen: 0,
@@ -116,6 +126,8 @@ export function calculateStats(list: PatientVisit[], defaultDeptName = 'จุ�
       m_wait_doc1: 0,
       m_wait_doc2: 0,
       m_doc_time: 0,
+      m_wait_post_doc: 0,
+      m_post_doc: 0,
       m_wait_rx: 0,
       m_total_all: 0,
       m_min_total: 0,
@@ -144,6 +156,18 @@ export function calculateStats(list: PatientVisit[], defaultDeptName = 'จุ�
   const valid_doctor = list.filter(v => v.doctor_m !== null && parseFloat(String(v.doctor_m || 0)) > 0);
   const doctor_cc = valid_doctor.length > 0 ? Math.round(valid_doctor.reduce((acc, v) => acc + parseFloat(String(v.doctor_m || 0)), 0) / valid_doctor.length) : 0;
 
+  // 4.5 รอหลังพบแพทย์ (042)
+  const valid_wait_post_doc = list.filter(v => v.wait_post_doc_m !== null && v.wait_post_doc_m !== undefined && v.wait_post_doc_m > 0);
+  const wait_post_doc_cc = valid_wait_post_doc.length > 0 
+    ? Math.round(valid_wait_post_doc.reduce((acc, v) => acc + (v.wait_post_doc_m || 0), 0) / valid_wait_post_doc.length) 
+    : 0;
+
+  // 4.6 บริการหลังพบแพทย์ (042)
+  const valid_post_doc = list.filter(v => v.post_doc_m !== null && v.post_doc_m !== undefined && parseFloat(String(v.post_doc_m || 0)) > 0);
+  const post_doc_cc = valid_post_doc.length > 0 
+    ? Math.round(valid_post_doc.reduce((acc, v) => acc + parseFloat(String(v.post_doc_m || 0)), 0) / valid_post_doc.length) 
+    : 0;
+
   // 5. รอรับยา
   const valid_wait_rx = includeNoDrug 
     ? list 
@@ -153,11 +177,17 @@ export function calculateStats(list: PatientVisit[], defaultDeptName = 'จุ�
     : 0;
 
   // ผลรวมขั้นตอนเฉลี่ย
-  const total_wait = wait_screen_cc + screen_cc + wait_doctor + doctor_cc + wait_drug_cc;
+  const total_wait = wait_screen_cc + screen_cc + wait_doctor + doctor_cc + wait_post_doc_cc + post_doc_cc + wait_drug_cc;
 
   // คำนวณค่าน้อยสุด / มากสุด ของเวลารวมต่อคนไข้
   const patientTotals = list.map(v => {
-    return (v.wait_screen_m || 0) + parseFloat(String(v.screen_m || 0)) + (v.wait_doctor_m || 0) + parseFloat(String(v.doctor_m || 0)) + (v.wait_drug_m || 0);
+    return (v.wait_screen_m || 0) + 
+           parseFloat(String(v.screen_m || 0)) + 
+           (v.wait_doctor_m || 0) + 
+           parseFloat(String(v.doctor_m || 0)) + 
+           (v.wait_post_doc_m || 0) + 
+           parseFloat(String(v.post_doc_m || 0)) + 
+           (v.wait_drug_m || 0);
   });
   const m_min_total = patientTotals.length > 0 ? Math.min(...patientTotals) : 0;
   const m_max_total = patientTotals.length > 0 ? Math.max(...patientTotals) : 0;
@@ -172,6 +202,8 @@ export function calculateStats(list: PatientVisit[], defaultDeptName = 'จุ�
     'รอตรวจ1': `${wait_doctor}:00`,
     'รอตรวจ2': '00:00',
     'แพทย์ตรวจ': `${doctor_cc}:00`,
+    'รอหลังพบแพทย์': `${wait_post_doc_cc}:00`,
+    'บริการหลังพบแพทย์': `${post_doc_cc}:00`,
     'รอรับยา': `${wait_drug_cc}:00`,
     'total_all': `${total_wait}:00`,
     m_wait_screen: wait_screen_cc,
@@ -179,6 +211,8 @@ export function calculateStats(list: PatientVisit[], defaultDeptName = 'จุ�
     m_wait_doc1: wait_doctor,
     m_wait_doc2: 0,
     m_doc_time: doctor_cc,
+    m_wait_post_doc: wait_post_doc_cc,
+    m_post_doc: post_doc_cc,
     m_wait_rx: wait_drug_cc,
     m_total_all: total_wait,
     m_min_total: m_min_total,

@@ -245,6 +245,43 @@ describe('OPD 7 Waiting Calculator Utility Tests', () => {
       // KPI pass count = 1.
       expect(stats.kpi_pass_count).toBe(1);
     });
+
+    it('should correctly calculate post-doctor wait and service times when present', () => {
+      const postDocVisits: PatientVisit[] = [
+        {
+          vn: '4',
+          hn: '004',
+          vstdate: '2026-06-17',
+          vsttime: '08:00:00',
+          departmentname: 'จุดซักประวัติผู้ป่วยนอก',
+          visit_hour: 8,
+          wait_screen_m: 10,
+          screen_m: 5,
+          wait_doctor_m: 15,
+          doctor_m: 10,
+          wait_post_doc_m: 8,
+          post_doc_m: 12,
+          wait_drug_m: 15,
+          is_weekend: 0,
+          is_appointed: 0,
+          has_lab: 0,
+          has_xray: 0,
+          has_procedure: 0
+        }
+      ];
+
+      const stats = calculateStats(postDocVisits);
+
+      expect(stats.total_patients).toBe(1);
+      expect(stats.m_wait_post_doc).toBe(8);
+      expect(stats['รอหลังพบแพทย์']).toBe('8:00');
+      expect(stats.m_post_doc).toBe(12);
+      expect(stats['บริการหลังพบแพทย์']).toBe('12:00');
+      expect(stats.m_wait_rx).toBe(15);
+      expect(stats['รอรับยา']).toBe('15:00');
+      expect(stats.m_total_all).toBe(75);
+      expect(stats.total_all).toBe('75:00');
+    });
   });
 
   describe('Hourly Calculations Tests', () => {

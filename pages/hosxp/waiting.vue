@@ -91,13 +91,55 @@ const busiestHour = computed(() => {
     return sorted[0].total > 0 ? sorted[0] : null;
 });
 
-const steps = computed(() => [
-    { label: 'รอซักประวัติ', val: stats.value?.รอซักประวัติ, m: stats.value?.m_wait_screen, color: 'text-teal-500', bg: 'bg-teal-50', darkBg: 'dark:bg-teal-900/20', icon: 'i-heroicons-user-plus', key: 'wait_screen' },
-    { label: 'ซักประวัติ', val: stats.value?.ซักประวัติ, m: stats.value?.m_screen, color: 'text-blue-500', bg: 'bg-blue-50', darkBg: 'dark:bg-blue-900/20', icon: 'i-heroicons-pencil-square', key: 'screen' },
-    { label: 'รอพบแพทย์', val: stats.value?.รอตรวจ1, m: stats.value?.m_wait_doc1, color: 'text-[#ba895d]', bg: 'bg-[#fff8e1]', darkBg: 'dark:bg-[#ba895d]/10', icon: 'i-heroicons-user-group', key: 'wait_doctor' },
-    { label: 'แพทย์ตรวจ', val: stats.value?.แพทย์ตรวจ, m: stats.value?.m_doc_time, color: 'text-green-500', bg: 'bg-green-50', darkBg: 'dark:bg-green-900/20', icon: 'i-heroicons-shield-check', key: 'doctor' },
-    { label: 'รอรับยา/บริการ', val: stats.value?.รอรับยา, m: stats.value?.m_wait_rx, color: 'text-orange-500', bg: 'bg-orange-50', darkBg: 'dark:bg-orange-900/20', icon: 'i-heroicons-beaker', key: 'wait_rx' }
-]);
+const steps = computed(() => {
+    const list = [
+        { label: 'รอซักประวัติ', val: stats.value?.รอซักประวัติ, m: stats.value?.m_wait_screen, color: 'text-teal-500', bg: 'bg-teal-50', darkBg: 'dark:bg-teal-900/20', icon: 'i-heroicons-user-plus', key: 'wait_screen' },
+        { label: 'ซักประวัติ', val: stats.value?.ซักประวัติ, m: stats.value?.m_screen, color: 'text-blue-500', bg: 'bg-blue-50', darkBg: 'dark:bg-blue-900/20', icon: 'i-heroicons-pencil-square', key: 'screen' },
+        { label: 'รอพบแพทย์', val: stats.value?.รอตรวจ1, m: stats.value?.m_wait_doc1, color: 'text-[#ba895d]', bg: 'bg-[#fff8e1]', darkBg: 'dark:bg-[#ba895d]/10', icon: 'i-heroicons-user-group', key: 'wait_doctor' },
+        { label: 'แพทย์ตรวจ', val: stats.value?.แพทย์ตรวจ, m: stats.value?.m_doc_time, color: 'text-green-500', bg: 'bg-green-50', darkBg: 'dark:bg-green-900/20', icon: 'i-heroicons-shield-check', key: 'doctor' }
+    ];
+
+    const hasPostDocData = filteredVisits.value.some(v => v.wait_post_doc_m !== null || v.post_doc_m !== null);
+
+    if (hasPostDocData) {
+        list.push(
+            { label: 'รอหลังพบแพทย์', val: stats.value?.รอหลังพบแพทย์ || '00:00', m: stats.value?.m_wait_post_doc || 0, color: 'text-gray-500', bg: 'bg-gray-50', darkBg: 'dark:bg-gray-800/40', icon: 'i-heroicons-clock', key: 'wait_post_doc' },
+            { label: 'บริการหลังพบแพทย์', val: stats.value?.บริการหลังพบแพทย์ || '00:00', m: stats.value?.m_post_doc || 0, color: 'text-purple-500', bg: 'bg-purple-50', darkBg: 'dark:bg-purple-900/20', icon: 'i-heroicons-clipboard-document-check', key: 'post_doc' },
+            { label: 'รอรับยา (จริง)', val: stats.value?.รอรับยา || '00:00', m: stats.value?.m_wait_rx || 0, color: 'text-orange-500', bg: 'bg-orange-50', darkBg: 'dark:bg-orange-900/20', icon: 'i-heroicons-beaker', key: 'wait_rx' }
+        );
+    } else {
+        list.push(
+            { label: 'รอรับยา/บริการ', val: stats.value?.รอรับยา, m: stats.value?.m_wait_rx, color: 'text-orange-500', bg: 'bg-orange-50', darkBg: 'dark:bg-orange-900/20', icon: 'i-heroicons-beaker', key: 'wait_rx' }
+        );
+    }
+
+    return list;
+});
+
+const stackedBarSegments = computed(() => {
+    const segments = [
+        { val: stats.value?.m_wait_screen || 0, color: 'bg-teal-400', label: 'รอซักประวัติ' },
+        { val: stats.value?.m_screen || 0, color: 'bg-blue-400', label: 'ซักประวัติ' },
+        { val: stats.value?.m_wait_doc1 || 0, color: 'bg-[#ba895d]', label: 'รอพบแพทย์' },
+        { val: stats.value?.m_doc_time || 0, color: 'bg-green-400', label: 'แพทย์ตรวจ' }
+    ];
+
+    const hasPostDocData = filteredVisits.value.some(v => v.wait_post_doc_m !== null || v.post_doc_m !== null);
+
+    if (hasPostDocData) {
+        segments.push(
+            { val: stats.value?.m_wait_post_doc || 0, color: 'bg-gray-400', label: 'รอหลังพบแพทย์' },
+            { val: stats.value?.m_post_doc || 0, color: 'bg-purple-400', label: 'บริการหลังพบแพทย์' },
+            { val: stats.value?.m_wait_rx || 0, color: 'bg-orange-400', label: 'รอรับยา (จริง)' }
+        );
+    } else {
+        segments.push(
+            { val: stats.value?.m_wait_rx || 0, color: 'bg-orange-400', label: 'รอรับยา/บริการ' }
+        );
+    }
+
+    return segments;
+});
 
 // Modal and details view variables
 const isModalOpen = ref(false);
@@ -164,6 +206,8 @@ const getKpiThreshold = (key: string) => {
         screen: 10,
         wait_doctor: 15,
         doctor: 15,
+        wait_post_doc: 10,
+        post_doc: 10,
         wait_rx: 15
     };
     return thresholds[key] || 20;
@@ -177,6 +221,8 @@ const modalVisits = computed(() => {
         screen: 'screen_m',
         wait_doctor: 'wait_doctor_m',
         doctor: 'doctor_m',
+        wait_post_doc: 'wait_post_doc_m',
+        post_doc: 'post_doc_m',
         wait_rx: 'wait_drug_m'
     };
     
@@ -192,7 +238,7 @@ const modalVisits = computed(() => {
             if (val === null || val === undefined) return false;
             
             // Align with calculateStats: only average patients with active service times
-            if (activeStepKey.value === 'wait_doctor' || activeStepKey.value === 'doctor' || activeStepKey.value === 'wait_rx') {
+            if (activeStepKey.value === 'wait_doctor' || activeStepKey.value === 'doctor' || activeStepKey.value === 'wait_rx' || activeStepKey.value === 'wait_post_doc' || activeStepKey.value === 'post_doc') {
                 return parseFloat(String(val)) > 0;
             }
             return true;
@@ -280,12 +326,17 @@ const peakHourBottleneck = computed(() => {
 
 const activeServiceTime = computed(() => {
     if (!stats.value) return 0;
-    return (stats.value.m_screen || 0) + (stats.value.m_doc_time || 0);
+    return (stats.value.m_screen || 0) + 
+           (stats.value.m_doc_time || 0) + 
+           (stats.value.m_post_doc || 0);
 });
 
 const idleWaitingTime = computed(() => {
     if (!stats.value) return 0;
-    return (stats.value.m_wait_screen || 0) + (stats.value.m_wait_doc1 || 0) + (stats.value.m_wait_rx || 0);
+    return (stats.value.m_wait_screen || 0) + 
+           (stats.value.m_wait_doc1 || 0) + 
+           (stats.value.m_wait_post_doc || 0) + 
+           (stats.value.m_wait_rx || 0);
 });
 
 const activePercentage = computed(() => {
@@ -496,7 +547,7 @@ const safeNum = (val: any): number => {
                             class="px-4 py-2 text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-[#f5f7fb] dark:hover:bg-gray-800/50 cursor-pointer flex justify-between items-center transition-colors"
                         >
                             <span class="text-[#24695c] dark:text-[#2dd4bf]">{{ v.vn }}</span>
-                            <span class="text-gray-400 font-normal">{{ v.vsttime }} ({{ Math.round((v.wait_screen_m || 0) + parseFloat(String(v.screen_m)) + v.wait_doctor_m + parseFloat(String(v.doctor_m)) + v.wait_drug_m) }} นาที)</span>
+                            <span class="text-gray-400 font-normal">{{ v.vsttime }} ({{ Math.round((v.wait_screen_m || 0) + parseFloat(String(v.screen_m || 0)) + (v.wait_doctor_m || 0) + parseFloat(String(v.doctor_m || 0)) + (v.wait_post_doc_m || 0) + parseFloat(String(v.post_doc_m || 0)) + (v.wait_drug_m || 0)) }} นาที)</span>
                         </div>
                     </div>
                 </div>
@@ -685,14 +736,8 @@ const safeNum = (val: any): number => {
                         <!-- Premium Stacked Bar (Taller, cleaner, and beautiful) -->
                         <div class="relative px-1 pt-2">
                             <div class="flex h-10 rounded-[0.9rem] overflow-hidden bg-[#f5f7fb] dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-[4px] shadow-inner" style="gap: 3px;">
-                                <div v-for="(step, i) in [
-                                    { val: stats.m_wait_screen, color: 'bg-teal-400', label: 'รอซักประวัติ' },
-                                    { val: stats.m_screen, color: 'bg-blue-400', label: 'ซักประวัติ' },
-                                    { val: stats.m_wait_doc1, color: 'bg-[#ba895d]', label: 'รอพบแพทย์' },
-                                    { val: stats.m_doc_time, color: 'bg-green-400', label: 'แพทย์ตรวจ' },
-                                    { val: stats.m_wait_rx, color: 'bg-orange-400', label: 'รอรับยา/บริการ' }
-                                ]" :key="i" :style="{ width: (step.val / stats.m_total_all * 100) + '%' }" :class="[step.color, 'h-full hover:brightness-110 transition-all duration-300 flex items-center justify-center group/seg relative cursor-help rounded-[0.6rem] first:rounded-l-[0.6rem] last:rounded-r-[0.6rem] shadow-sm']">
-                                    <span class="text-[10px] sm:text-xs font-black text-white drop-shadow-md tabular-nums">{{ Math.round(step.val / stats.m_total_all * 100) }}%</span>
+                                <div v-for="(step, i) in stackedBarSegments" :key="i" :style="{ width: (step.val / (stats.m_total_all || 1) * 100) + '%' }" :class="[step.color, 'h-full hover:brightness-110 transition-all duration-300 flex items-center justify-center group/seg relative cursor-help rounded-[0.6rem] first:rounded-l-[0.6rem] last:rounded-r-[0.6rem] shadow-sm']">
+                                    <span class="text-[10px] sm:text-xs font-black text-white drop-shadow-md tabular-nums">{{ Math.round(step.val / (stats.m_total_all || 1) * 100) }}%</span>
                                     
                                     <!-- Tooltip -->
                                     <div class="absolute -top-11 left-1/2 -translate-x-1/2 bg-[#2c323f] text-white text-[10px] px-3 py-1.5 rounded-lg opacity-0 group-hover/seg:opacity-100 whitespace-nowrap z-50 pointer-events-none font-bold shadow-xl border border-white/10 transition-all duration-200 scale-90 group-hover/seg:scale-100">
@@ -705,13 +750,7 @@ const safeNum = (val: any): number => {
 
                         <!-- Compact Legend Row -->
                         <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 pt-2 px-1">
-                            <div v-for="legend in [
-                                { color: 'bg-teal-400', label: 'รอซักประวัติ' },
-                                { color: 'bg-blue-400', label: 'ซักประวัติ' },
-                                { color: 'bg-[#ba895d]', label: 'รอพบแพทย์' },
-                                { color: 'bg-green-400', label: 'แพทย์ตรวจ' },
-                                { color: 'bg-orange-400', label: 'รอรับยา/บริการ' }
-                            ]" :key="legend.label" class="flex items-center gap-2">
+                            <div v-for="legend in stackedBarSegments" :key="legend.label" class="flex items-center gap-2">
                                 <div :class="['w-2.5 h-2.5 rounded-full', legend.color]"></div>
                                 <span class="text-[11px] font-bold text-gray-500 dark:text-gray-400">{{ legend.label }}</span>
                             </div>
@@ -1115,24 +1154,73 @@ const safeNum = (val: any): number => {
                                 </div>
                             </div>
 
-                            <!-- Transition 3: รอรับยา -->
-                            <div class="bg-orange-50/50 dark:bg-orange-950/10 border border-orange-100/30 dark:border-orange-900/20 p-3 rounded-xl flex items-center justify-between text-xs">
-                                <span class="font-bold text-orange-600 dark:text-orange-400 flex items-center gap-1">
-                                    <UIcon name="i-heroicons-clock" /> รอรับยา/บริการ
-                                </span>
-                                <span class="font-black text-[#2c323f] dark:text-white tabular-nums">
-                                    {{ selectedVnDetailsData.wait_drug_m !== null ? Math.round(safeNum(selectedVnDetailsData.wait_drug_m)) + ' นาที' : '-' }}
-                                </span>
-                            </div>
-
-                            <!-- Step 4: รับยาเสร็จสิ้น -->
-                            <div class="relative">
-                                <span class="absolute -left-[41px] top-0.5 w-6 h-6 rounded-full bg-orange-500 border-4 border-white dark:border-gray-900 flex items-center justify-center text-[10px] font-black text-white shadow-lg shadow-orange-500/20">4</span>
-                                <div>
-                                    <h4 class="text-sm font-black text-[#2c323f] dark:text-white">รับยาและเสร็จสิ้นบริการ</h4>
-                                    <p class="text-[11px] font-bold text-gray-400 mt-0.5">เวลาจ่ายเสร็จสิ้น: {{ selectedVnDetailsData.rx_dispense_dt ? selectedVnDetailsData.rx_dispense_dt.split(' ')[1] : '-' }}</p>
+                            <!-- Transition 3 & Step 3.5/4 conditional on having post-doc data -->
+                            <template v-if="selectedVnDetailsData.wait_post_doc_m !== null || selectedVnDetailsData.post_doc_m !== null">
+                                <!-- Transition 3a: รอหลังพบแพทย์ -->
+                                <div class="bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800 p-3 rounded-xl flex items-center justify-between text-xs">
+                                    <span class="font-bold text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                                        <UIcon name="i-heroicons-clock" /> รอหลังพบแพทย์ (ห้อง 042)
+                                    </span>
+                                    <span class="font-black text-[#2c323f] dark:text-white tabular-nums">
+                                        {{ selectedVnDetailsData.wait_post_doc_m !== null ? Math.round(safeNum(selectedVnDetailsData.wait_post_doc_m)) + ' นาที' : '-' }}
+                                    </span>
                                 </div>
-                            </div>
+
+                                <!-- Step 3.5: บริการหลังพบแพทย์ -->
+                                <div class="relative">
+                                    <span class="absolute -left-[41px] top-0.5 w-6 h-6 rounded-full bg-purple-500 border-4 border-white dark:border-gray-900 flex items-center justify-center text-[10px] font-black text-white shadow-lg shadow-purple-500/20">3.5</span>
+                                    <div>
+                                        <h4 class="text-sm font-black text-[#2c323f] dark:text-white">บริการหลังพบแพทย์ (ออกใบนัด / ให้คำแนะนำ)</h4>
+                                        <p class="text-[11px] font-bold text-gray-400 mt-0.5">
+                                            เริ่ม: {{ selectedVnDetailsData.post_doc_begin_dt ? selectedVnDetailsData.post_doc_begin_dt.split(' ')[1] : '-' }} &rarr; 
+                                            เสร็จ: {{ selectedVnDetailsData.post_doc_end_dt ? selectedVnDetailsData.post_doc_end_dt.split(' ')[1] : '-' }}
+                                        </p>
+                                        <p class="text-[11px] font-bold text-purple-600 dark:text-purple-400 mt-1">
+                                            ระยะเวลาให้บริการ: {{ selectedVnDetailsData.post_doc_m !== null && selectedVnDetailsData.post_doc_m !== undefined ? Math.round(safeNum(selectedVnDetailsData.post_doc_m)) + ' นาที' : '-' }}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <!-- Transition 3b: รอรับยา (จริง) -->
+                                <div class="bg-orange-50/50 dark:bg-orange-950/10 border border-orange-100/30 dark:border-orange-900/20 p-3 rounded-xl flex items-center justify-between text-xs">
+                                    <span class="font-bold text-orange-600 dark:text-orange-400 flex items-center gap-1">
+                                        <UIcon name="i-heroicons-clock" /> รอรับยา (จริง)
+                                    </span>
+                                    <span class="font-black text-[#2c323f] dark:text-white tabular-nums">
+                                        {{ selectedVnDetailsData.wait_drug_m !== null ? Math.round(safeNum(selectedVnDetailsData.wait_drug_m)) + ' นาที' : '-' }}
+                                    </span>
+                                </div>
+
+                                <!-- Step 4: รับยาเสร็จสิ้น -->
+                                <div class="relative">
+                                    <span class="absolute -left-[41px] top-0.5 w-6 h-6 rounded-full bg-orange-500 border-4 border-white dark:border-gray-900 flex items-center justify-center text-[10px] font-black text-white shadow-lg shadow-orange-500/20">4</span>
+                                    <div>
+                                        <h4 class="text-sm font-black text-[#2c323f] dark:text-white">รับยาและเสร็จสิ้นบริการ</h4>
+                                        <p class="text-[11px] font-bold text-gray-400 mt-0.5">เวลาจ่ายเสร็จสิ้น: {{ selectedVnDetailsData.rx_dispense_dt ? selectedVnDetailsData.rx_dispense_dt.split(' ')[1] : '-' }}</p>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <template v-else>
+                                <!-- Transition 3: รอรับยา -->
+                                <div class="bg-orange-50/50 dark:bg-orange-950/10 border border-orange-100/30 dark:border-orange-900/20 p-3 rounded-xl flex items-center justify-between text-xs">
+                                    <span class="font-bold text-orange-600 dark:text-orange-400 flex items-center gap-1">
+                                        <UIcon name="i-heroicons-clock" /> รอรับยา/บริการ
+                                    </span>
+                                    <span class="font-black text-[#2c323f] dark:text-white tabular-nums">
+                                        {{ selectedVnDetailsData.wait_drug_m !== null ? Math.round(safeNum(selectedVnDetailsData.wait_drug_m)) + ' นาที' : '-' }}
+                                    </span>
+                                </div>
+
+                                <!-- Step 4: รับยาเสร็จสิ้น -->
+                                <div class="relative">
+                                    <span class="absolute -left-[41px] top-0.5 w-6 h-6 rounded-full bg-orange-500 border-4 border-white dark:border-gray-900 flex items-center justify-center text-[10px] font-black text-white shadow-lg shadow-orange-500/20">4</span>
+                                    <div>
+                                        <h4 class="text-sm font-black text-[#2c323f] dark:text-white">รับยาและเสร็จสิ้นบริการ</h4>
+                                        <p class="text-[11px] font-bold text-gray-400 mt-0.5">เวลาจ่ายเสร็จสิ้น: {{ selectedVnDetailsData.rx_dispense_dt ? selectedVnDetailsData.rx_dispense_dt.split(' ')[1] : '-' }}</p>
+                                    </div>
+                                </div>
+                            </template>
 
                         </div>
 

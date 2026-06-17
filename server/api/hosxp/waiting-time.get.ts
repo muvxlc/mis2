@@ -89,7 +89,22 @@ export default defineEventHandler(async (event) => {
         ROUND(t2.service_time_second / 60, 2) AS screen_m,
         TIMESTAMPDIFF(MINUTE, t2.service_end_datetime, t3.service_begin_datetime) AS wait_doctor_m,
         ROUND(t3.service_time_second / 60, 2) AS doctor_m,
-        TIMESTAMPDIFF(MINUTE, t3.service_end_datetime, rx.rx_dispenser_datetime) AS wait_drug_m,
+        
+        -- รอรับยาและหลังพบแพทย์ แบ่งตามเงื่อนไขวันที่และประเภทการส่งตรวจ
+        IF(o.vstdate >= '2026-06-17' AND t4.service_begin_datetime IS NOT NULL,
+           TIMESTAMPDIFF(MINUTE, t3.service_end_datetime, t4.service_begin_datetime),
+           NULL
+        ) AS wait_post_doc_m,
+        
+        IF(o.vstdate >= '2026-06-17' AND t4.service_begin_datetime IS NOT NULL,
+           ROUND(t4.service_time_second / 60, 2),
+           NULL
+        ) AS post_doc_m,
+        
+        IF(o.vstdate >= '2026-06-17' AND t4.service_begin_datetime IS NOT NULL,
+           TIMESTAMPDIFF(MINUTE, t4.service_end_datetime, rx.rx_dispenser_datetime),
+           TIMESTAMPDIFF(MINUTE, t3.service_end_datetime, rx.rx_dispenser_datetime)
+        ) AS wait_drug_m,
         
         -- [วันเวลาดิบสำหรับการเจาะลึก Timeline]
         DATE_FORMAT(t1.service_end_datetime, '%Y-%m-%d %H:%i:%s') AS reg_end_dt,
@@ -97,6 +112,8 @@ export default defineEventHandler(async (event) => {
         DATE_FORMAT(t2.service_end_datetime, '%Y-%m-%d %H:%i:%s') AS screen_end_dt,
         DATE_FORMAT(t3.service_begin_datetime, '%Y-%m-%d %H:%i:%s') AS doc_begin_dt,
         DATE_FORMAT(t3.service_end_datetime, '%Y-%m-%d %H:%i:%s') AS doc_end_dt,
+        DATE_FORMAT(t4.service_begin_datetime, '%Y-%m-%d %H:%i:%s') AS post_doc_begin_dt,
+        DATE_FORMAT(t4.service_end_datetime, '%Y-%m-%d %H:%i:%s') AS post_doc_end_dt,
         DATE_FORMAT(rx.rx_dispenser_datetime, '%Y-%m-%d %H:%i:%s') AS rx_dispense_dt,
         
         -- [Flags คัดกรองสำหรับนำไปคำนวณสดฝั่งไคลเอนต์]
@@ -155,6 +172,17 @@ export default defineEventHandler(async (event) => {
         ) s2 ON s1.vn = s2.vn AND s1.service_begin_datetime = s2.min_begin
         WHERE s1.ovst_service_time_type_code = 'OPD-DOCTOR'
       ) t3 ON t3.vn = o.vn AND t3.service_begin_datetime >= t2.service_end_datetime
+      LEFT JOIN (
+        SELECT s1.vn, s1.service_begin_datetime, s1.service_end_datetime, s1.service_time_second
+        FROM ovst_service_time s1
+        INNER JOIN (
+          SELECT vn, MIN(service_begin_datetime) AS min_begin
+          FROM ovst_service_time
+          WHERE depcode = '042'
+          GROUP BY vn
+        ) s2 ON s1.vn = s2.vn AND s1.service_begin_datetime = s2.min_begin
+        WHERE s1.depcode = '042'
+      ) t4 ON t4.vn = o.vn
       LEFT JOIN (
         SELECT vn, MAX(rx_dispenser_datetime) AS rx_dispenser_datetime
         FROM rx_dispenser_detail
