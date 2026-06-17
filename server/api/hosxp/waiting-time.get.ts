@@ -103,7 +103,19 @@ export default defineEventHandler(async (event) => {
         IF(DAYOFWEEK(o.vstdate) IN (1, 7), 1, 0) AS is_weekend,
         IF(EXISTS(SELECT 1 FROM oapp oa WHERE oa.visit_vn = o.vn AND oa.nextdate = o.vstdate), 1, 0) AS is_appointed,
         IF(EXISTS(SELECT 1 FROM lab_head lh WHERE lh.vn = o.vn), 1, 0) AS has_lab,
-        IF(EXISTS(SELECT 1 FROM xray_head xh WHERE xh.vn = o.vn), 1, 0) AS has_xray
+        IF(EXISTS(SELECT 1 FROM xray_head xh WHERE xh.vn = o.vn), 1, 0) AS has_xray,
+        IF(EXISTS(
+          SELECT 1 FROM vn_stat vs 
+          WHERE vs.vn = o.vn 
+            AND (
+              (vs.op0 IS NOT NULL AND vs.op0 <> '') OR
+              (vs.op1 IS NOT NULL AND vs.op1 <> '') OR
+              (vs.op2 IS NOT NULL AND vs.op2 <> '') OR
+              (vs.op3 IS NOT NULL AND vs.op3 <> '') OR
+              (vs.op4 IS NOT NULL AND vs.op4 <> '') OR
+              (vs.op5 IS NOT NULL AND vs.op5 <> '')
+            )
+        ), 1, 0) AS has_procedure
       FROM (
         SELECT 
           o.vn, 

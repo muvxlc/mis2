@@ -8,11 +8,12 @@ const analysisPeriod = ref('standard'); // 'standard' | 'early'
 const startTime = computed(() => analysisPeriod.value === 'early' ? '05:00:00' : '08:00:00');
 const endTime = computed(() => '16:00:59');
 
-// 4 ตัวกรอง Reactive อัจฉริยะสำหรับคัดกรองข้อมูลสถิติ HOSxP (เริ่มต้นเป็น false เพื่อให้โหลดข้อมูลทั้งหมดก่อนเมื่อเข้าครั้งแรก)
+// 5 ตัวกรอง Reactive อัจฉริยะสำหรับคัดกรองข้อมูลสถิติ HOSxP (เริ่มต้นเป็น false เพื่อให้โหลดข้อมูลทั้งหมดก่อนเมื่อเข้าครั้งแรก)
 const excludeWeekends = ref(false);
 const excludeAppointed = ref(false);
 const excludeLab = ref(false);
 const excludeXray = ref(false);
+const excludeProcedure = ref(false);
 
 const isBypassingCache = ref(false);
 const lastUpdated = ref<string>('');
@@ -23,14 +24,10 @@ const { data: response, refresh: triggerRefresh, status } = await useAsyncData('
         endDate: endDate.value,
         startTime: startTime.value,
         endTime: endTime.value,
-        excludeWeekends: excludeWeekends.value,
-        excludeAppointed: excludeAppointed.value,
-        excludeLab: excludeLab.value,
-        excludeXray: excludeXray.value,
         bypassCache: isBypassingCache.value ? 'true' : 'false'
     }
 }), {
-    watch: [startDate, endDate, startTime, endTime, excludeWeekends, excludeAppointed, excludeLab, excludeXray]
+    watch: [startDate, endDate, startTime, endTime]
 });
 
 watch(() => response.value, (newVal) => {
@@ -58,7 +55,8 @@ const filteredVisits = computed(() => {
         excludeWeekends: excludeWeekends.value,
         excludeAppointed: excludeAppointed.value,
         excludeLab: excludeLab.value,
-        excludeXray: excludeXray.value
+        excludeXray: excludeXray.value,
+        excludeProcedure: excludeProcedure.value
     });
 });
 
@@ -79,6 +77,7 @@ const setAllFilters = (val: boolean) => {
     excludeAppointed.value = val;
     excludeLab.value = val;
     excludeXray.value = val;
+    excludeProcedure.value = val;
 };
 
 const maxPatientsScreen = computed(() => Math.max(...displayHourlyScreen.value.map(h => h.patient_count), 10));
@@ -449,11 +448,12 @@ const safeNum = (val: any): number => {
                         </UButton>
                     </div>
                 </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
                     <UCheckbox v-model="excludeWeekends" label="กรองจันทร์ - ศุกร์" />
                     <UCheckbox v-model="excludeAppointed" label="ไม่เอาเคสผู้ป่วยนัด" />
                     <UCheckbox v-model="excludeLab" label="ไม่เอาเคสส่ง Lab" />
                     <UCheckbox v-model="excludeXray" label="ไม่เอาเคสส่ง X-Ray" />
+                    <UCheckbox v-model="excludeProcedure" label="ไม่เอาเคสทำหัตถการ" />
                 </div>
             </div>
             

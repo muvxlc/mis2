@@ -8,6 +8,7 @@ export interface WaitingFilters {
   excludeAppointed: boolean;
   excludeLab: boolean;
   excludeXray: boolean;
+  excludeProcedure: boolean;
 }
 
 export interface PatientVisit {
@@ -26,6 +27,7 @@ export interface PatientVisit {
   is_appointed: number;
   has_lab: number;
   has_xray: number;
+  has_procedure: number;
   reg_end_dt?: string | null;
   screen_begin_dt?: string | null;
   screen_end_dt?: string | null;
@@ -84,6 +86,9 @@ export function filterVisits(visits: PatientVisit[], filters: WaitingFilters): P
   }
   if (filters.excludeXray) {
     list = list.filter(v => v.has_xray === 0);
+  }
+  if (filters.excludeProcedure) {
+    list = list.filter(v => v.has_procedure === 0);
   }
   return list;
 }

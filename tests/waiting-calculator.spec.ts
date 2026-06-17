@@ -13,6 +13,7 @@ import {
 const mockVisits: PatientVisit[] = [
   {
     vn: '1',
+    hn: '001',
     vstdate: '2026-05-26',
     vsttime: '08:15:00',
     departmentname: 'จุดซักประวัติผู้ป่วยนอก',
@@ -25,10 +26,12 @@ const mockVisits: PatientVisit[] = [
     is_weekend: 0,
     is_appointed: 0,
     has_lab: 0,
-    has_xray: 0
+    has_xray: 0,
+    has_procedure: 0
   },
   {
     vn: '2',
+    hn: '002',
     vstdate: '2026-05-26',
     vsttime: '09:30:00',
     departmentname: 'จุดซักประวัติผู้ป่วยนอก',
@@ -41,10 +44,12 @@ const mockVisits: PatientVisit[] = [
     is_weekend: 0,
     is_appointed: 1, // Appointed patient
     has_lab: 1,      // Has Lab
-    has_xray: 0
+    has_xray: 0,
+    has_procedure: 0
   },
   {
     vn: '3',
+    hn: '003',
     vstdate: '2026-05-30', // Saturday (Weekend)
     vsttime: '10:45:00',
     departmentname: 'จุดซักประวัติผู้ป่วยนอก',
@@ -57,7 +62,8 @@ const mockVisits: PatientVisit[] = [
     is_weekend: 1, // Weekend
     is_appointed: 0,
     has_lab: 0,
-    has_xray: 1    // Has X-ray
+    has_xray: 1,    // Has X-ray
+    has_procedure: 1
   }
 ];
 
@@ -86,7 +92,8 @@ describe('OPD 7 Waiting Calculator Utility Tests', () => {
         excludeWeekends: false,
         excludeAppointed: false,
         excludeLab: false,
-        excludeXray: false
+        excludeXray: false,
+        excludeProcedure: false
       };
       const filtered = filterVisits(mockVisits, filters);
       expect(filtered.length).toBe(3);
@@ -97,7 +104,8 @@ describe('OPD 7 Waiting Calculator Utility Tests', () => {
         excludeWeekends: true,
         excludeAppointed: false,
         excludeLab: false,
-        excludeXray: false
+        excludeXray: false,
+        excludeProcedure: false
       };
       const filtered = filterVisits(mockVisits, filters);
       expect(filtered.length).toBe(2);
@@ -109,7 +117,8 @@ describe('OPD 7 Waiting Calculator Utility Tests', () => {
         excludeWeekends: false,
         excludeAppointed: true,
         excludeLab: false,
-        excludeXray: false
+        excludeXray: false,
+        excludeProcedure: false
       };
       const filtered = filterVisits(mockVisits, filters);
       expect(filtered.length).toBe(2);
@@ -121,7 +130,8 @@ describe('OPD 7 Waiting Calculator Utility Tests', () => {
         excludeWeekends: false,
         excludeAppointed: false,
         excludeLab: true,
-        excludeXray: false
+        excludeXray: false,
+        excludeProcedure: false
       };
       const filtered = filterVisits(mockVisits, filters);
       expect(filtered.length).toBe(2);
@@ -133,7 +143,21 @@ describe('OPD 7 Waiting Calculator Utility Tests', () => {
         excludeWeekends: false,
         excludeAppointed: false,
         excludeLab: false,
-        excludeXray: true
+        excludeXray: true,
+        excludeProcedure: false
+      };
+      const filtered = filterVisits(mockVisits, filters);
+      expect(filtered.length).toBe(2);
+      expect(filtered.find(v => v.vn === '3')).toBeUndefined();
+    });
+
+    it('should exclude procedure visits when excludeProcedure is true', () => {
+      const filters = {
+        excludeWeekends: false,
+        excludeAppointed: false,
+        excludeLab: false,
+        excludeXray: false,
+        excludeProcedure: true
       };
       const filtered = filterVisits(mockVisits, filters);
       expect(filtered.length).toBe(2);
@@ -143,6 +167,7 @@ describe('OPD 7 Waiting Calculator Utility Tests', () => {
     it('should sanitize negative times to 0 and cap extreme outlier times to 480 minutes', () => {
       const outlierVisit: PatientVisit = {
         vn: '99',
+        hn: '099',
         vstdate: '2026-05-26',
         vsttime: '08:00:00',
         departmentname: 'จุดซักประวัติผู้ป่วยนอก',
@@ -155,14 +180,16 @@ describe('OPD 7 Waiting Calculator Utility Tests', () => {
         is_weekend: 0,
         is_appointed: 0,
         has_lab: 0,
-        has_xray: 0
+        has_xray: 0,
+        has_procedure: 0
       };
       
       const filters = {
         excludeWeekends: false,
         excludeAppointed: false,
         excludeLab: false,
-        excludeXray: false
+        excludeXray: false,
+        excludeProcedure: false
       };
       
       const filtered = filterVisits([outlierVisit], filters);
