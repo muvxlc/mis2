@@ -118,7 +118,7 @@ const steps = computed(() => {
         );
     } else {
         list.push(
-            { label: 'รอรับยา/บริการ', val: stats.value?.รอรับยา, m: stats.value?.m_wait_rx, color: 'text-orange-500', bg: 'bg-orange-50', darkBg: 'dark:bg-orange-900/20', icon: 'i-heroicons-beaker', key: 'wait_rx' }
+            { label: 'รอใบนัด/รอรับยา', val: stats.value?.รอรับยา, m: stats.value?.m_wait_rx, color: 'text-orange-500', bg: 'bg-orange-50', darkBg: 'dark:bg-orange-900/20', icon: 'i-heroicons-beaker', key: 'wait_rx' }
         );
     }
 
@@ -141,7 +141,7 @@ const stackedBarSegments = computed(() => {
         );
     } else {
         segments.push(
-            { val: stats.value?.m_wait_rx || 0, color: 'bg-orange-400', label: 'รอรับยา/บริการ' }
+            { val: stats.value?.m_wait_rx || 0, color: 'bg-orange-400', label: 'รอใบนัด/รอรับยา' }
         );
     }
 
@@ -1214,7 +1214,7 @@ const safeNum = (val: any): number => {
                                 <!-- Transition 3: รอรับยา -->
                                 <div class="bg-orange-50/50 dark:bg-orange-950/10 border border-orange-100/30 dark:border-orange-900/20 p-3 rounded-xl flex items-center justify-between text-xs">
                                     <span class="font-bold text-orange-600 dark:text-orange-400 flex items-center gap-1">
-                                        <UIcon name="i-heroicons-clock" /> รอรับยา/บริการ
+                                        <UIcon name="i-heroicons-clock" /> รอใบนัด/รอรับยา
                                     </span>
                                     <span class="font-black text-[#2c323f] dark:text-white tabular-nums">
                                         {{ selectedVnDetailsData.wait_drug_m !== null ? Math.round(safeNum(selectedVnDetailsData.wait_drug_m)) + ' นาที' : '-' }}
