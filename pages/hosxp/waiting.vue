@@ -114,7 +114,7 @@ const steps = computed(() => {
         list.push(
             { label: 'รอหลังพบแพทย์', val: stats.value?.รอหลังพบแพทย์ || '00:00', m: stats.value?.m_wait_post_doc || 0, color: 'text-gray-500', bg: 'bg-gray-50', darkBg: 'dark:bg-gray-800/40', icon: 'i-heroicons-clock', key: 'wait_post_doc' },
             { label: 'บริการหลังพบแพทย์', val: stats.value?.บริการหลังพบแพทย์ || '00:00', m: stats.value?.m_post_doc || 0, color: 'text-purple-500', bg: 'bg-purple-50', darkBg: 'dark:bg-purple-900/20', icon: 'i-heroicons-clipboard-document-check', key: 'post_doc' },
-            { label: 'รอรับยา (จริง)', val: stats.value?.รอรับยา || '00:00', m: stats.value?.m_wait_rx || 0, color: 'text-orange-500', bg: 'bg-orange-50', darkBg: 'dark:bg-orange-900/20', icon: 'i-heroicons-beaker', key: 'wait_rx' }
+            { label: 'รอรับยา', val: stats.value?.รอรับยา || '00:00', m: stats.value?.m_wait_rx || 0, color: 'text-orange-500', bg: 'bg-orange-50', darkBg: 'dark:bg-orange-900/20', icon: 'i-heroicons-beaker', key: 'wait_rx' }
         );
     } else {
         list.push(
@@ -137,7 +137,7 @@ const stackedBarSegments = computed(() => {
         segments.push(
             { val: stats.value?.m_wait_post_doc || 0, color: 'bg-gray-400', label: 'รอหลังพบแพทย์' },
             { val: stats.value?.m_post_doc || 0, color: 'bg-purple-400', label: 'บริการหลังพบแพทย์' },
-            { val: stats.value?.m_wait_rx || 0, color: 'bg-orange-400', label: 'รอรับยา (จริง)' }
+            { val: stats.value?.m_wait_rx || 0, color: 'bg-orange-400', label: 'รอรับยา' }
         );
     } else {
         segments.push(
@@ -1193,7 +1193,7 @@ const safeNum = (val: any): number => {
                                 <!-- Transition 3b: รอรับยา (จริง) -->
                                 <div class="bg-orange-50/50 dark:bg-orange-950/10 border border-orange-100/30 dark:border-orange-900/20 p-3 rounded-xl flex items-center justify-between text-xs">
                                     <span class="font-bold text-orange-600 dark:text-orange-400 flex items-center gap-1">
-                                        <UIcon name="i-heroicons-clock" /> รอรับยา (จริง)
+                                        <UIcon name="i-heroicons-clock" /> รอรับยา
                                     </span>
                                     <span class="font-black text-[#2c323f] dark:text-white tabular-nums">
                                         {{ selectedVnDetailsData.wait_drug_m !== null ? Math.round(safeNum(selectedVnDetailsData.wait_drug_m)) + ' นาที' : '-' }}
