@@ -37,8 +37,8 @@ if [ ! -f .env ]; then
     exit 1
 fi
 
-if grep -Eq '^(MYSQL_ROOT_PASSWORD|MYSQL_PASSWORD|REDIS_PASSWORD|JWT_SECRET|ADMIN_PASSWORD)=replace-with-' .env; then
-    print_error "Replace all security placeholders in .env before deployment."
+if grep -Eq '^((MYSQL_ROOT_PASSWORD|MYSQL_PASSWORD|REDIS_PASSWORD|JWT_SECRET|ADMIN_PASSWORD)=replace-with-|MYSQL_ROOT_PASSWORD=rootpassword$|MYSQL_PASSWORD=mis_password$|REDIS_PASSWORD=redispassword$|JWT_SECRET=your-super-secret-jwt-key-change-in-production-min-32-chars$)' .env; then
+    print_error "Replace all placeholder or legacy default secrets in .env before deployment."
     exit 1
 fi
 
