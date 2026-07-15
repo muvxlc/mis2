@@ -1,10 +1,20 @@
 // ThaID (DOPA) OIDC Utility
-export const getThaIDAuthUrl = () => {
+interface ThaIDTokenResponse {
+  access_token: string;
+  id_token?: string;
+}
+
+interface ThaIDUserInfo {
+  pid?: string;
+  name?: string;
+}
+
+export const getThaIDAuthUrl = (state: string) => {
   const baseUrl = process.env.THAID_BASE_URL || 'https://imauth.bora.dopa.go.th/api/v2/oauth2/auth/';
   const clientId = process.env.THAID_CLIENT_ID;
   const redirectUri = process.env.THAID_REDIRECT_URI;
   
-  if (!clientId || !redirectUri) {
+  if (!clientId || !redirectUri || !state) {
     throw new Error('ThaID configuration missing');
   }
 
@@ -13,7 +23,7 @@ export const getThaIDAuthUrl = () => {
     client_id: clientId,
     redirect_uri: redirectUri,
     scope: process.env.THAID_SCOPE || 'openid pid name',
-    state: 'thaid_login' 
+    state
   });
 
   return `${baseUrl}?${params.toString()}`;
@@ -31,7 +41,7 @@ export const exchangeThaIDCode = async (code: string) => {
 
   const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
 
-  const response = await $fetch<any>(tokenUrl, {
+  const response = await $fetch<ThaIDTokenResponse>(tokenUrl, {
     method: 'POST',
     headers: {
       'Authorization': `Basic ${auth}`,
@@ -50,7 +60,7 @@ export const exchangeThaIDCode = async (code: string) => {
 export const getThaIDUserInfo = async (accessToken: string) => {
   const userinfoUrl = process.env.THAID_USERINFO_URL || 'https://imauth.bora.dopa.go.th/api/v2/oauth2/userinfo/';
 
-  const response = await $fetch<any>(userinfoUrl, {
+  const response = await $fetch<ThaIDUserInfo>(userinfoUrl, {
     headers: {
       'Authorization': `Bearer ${accessToken}`
     }

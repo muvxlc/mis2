@@ -47,12 +47,9 @@ docker-compose logs -f
 docker-compose ps
 ```
 
-### 4. Seeding Database
+### 4. Database Initialization
 
-```bash
-# Seed ข้อมูลเริ่มต้น (admin user)
-docker-compose exec -T app npx tsx server/scripts/seed.ts
-```
+Migration และ seed จะทำงานอัตโนมัติผ่าน service `db-init` ก่อน app เริ่มทำงาน
 
 ## การใช้งาน
 
@@ -61,17 +58,17 @@ docker-compose exec -T app npx tsx server/scripts/seed.ts
 - **App URL**: http://localhost:3000
 - **Default Admin**:
   - Username: `admin`
-  - Password: `admin123`
+  - Password: ค่าจาก `ADMIN_PASSWORD` ในไฟล์ `.env`
 
-⚠️ **สำคัญ**: ควรเปลี่ยนรหัสผ่าน admin หลังจาก login ครั้งแรก
+⚠️ **สำคัญ**: ห้าม commit ไฟล์ `.env` และควรใช้รหัสผ่านแบบสุ่มที่ยาวอย่างน้อย 12 ตัวอักษร
 
 ## Docker Services
 
 | Service | Port | Description |
 |---------|------|-------------|
 | app | 3000 | Nuxt Application |
-| mariadb | 3306 | MySQL/MariaDB Database |
-| redis | 6379 | Redis Cache |
+| mariadb | 127.0.0.1:3306 | MySQL/MariaDB Database (local host only) |
+| redis | 127.0.0.1:6379 | Redis Cache (local host only) |
 | nginx | 80, 443 | Reverse Proxy (optional) |
 
 ## คำสั่ง Docker Compose ที่มีประโยชน์

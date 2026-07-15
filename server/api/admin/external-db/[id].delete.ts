@@ -2,8 +2,10 @@ import { db } from '../../../utils/db';
 import { externalDatabases } from '../../../database/schema';
 import { eq } from 'drizzle-orm';
 import { closeExternalPool } from '../../../utils/externalDb';
+import { requireAdmin } from '../../../utils/authorization';
 
 export default defineEventHandler(async (event) => {
+  await requireAdmin(event);
   const id = Number(getRouterParam(event, 'id'));
 
   if (!id) {
@@ -22,7 +24,7 @@ export default defineEventHandler(async (event) => {
     }
 
     return { success: true };
-  } catch (e: any) {
+  } catch {
     throw createError({
       statusCode: 500,
       statusMessage: 'Failed to delete external database connection',

@@ -5,17 +5,17 @@ services:
     container_name: mis-mariadb
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-mis_db}
       MYSQL_USER: ${MYSQL_USER:-mis_user}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-mis_password}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
     ports:
-      - "${MYSQL_PORT:-3306}:3306"
+      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
     volumes:
       - mariadb_data:/var/lib/mysql
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     healthcheck:
-      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -u root -p\"$${MYSQL_ROOT_PASSWORD}\""]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -28,22 +28,44 @@ services:
     image: redis:7-alpine
     container_name: mis-redis
     restart: unless-stopped
-    command: >
-      redis-server 
-      --appendonly yes 
-      --requirepass ${REDIS_PASSWORD:-redispassword}
-      --maxmemory 256mb
-      --maxmemory-policy allkeys-lru
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+    command:
+      - sh
+      - -c
+      - >-
+        exec redis-server
+        --appendonly yes
+        --requirepass "$$REDIS_PASSWORD"
+        --maxmemory 256mb
+        --maxmemory-policy allkeys-lru
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$${REDIS_PASSWORD}\" redis-cli ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
+    networks:
+      - mis-network
+
+  # Apply the current schema and seed required default records before the app starts
+  db-init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: database-init
+    container_name: mis-db-init
+    restart: "no"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql://${MYSQL_USER:-mis_user}:${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}@mariadb:3306/${MYSQL_DATABASE:-mis_db}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     networks:
       - mis-network
 
@@ -59,17 +81,19 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     environment:
       NODE_ENV: production
       PORT: 3000
       # Database
-      DATABASE_URL: mysql://${MYSQL_USER:-mis_user}:${MYSQL_PASSWORD:-mis_password}@mariadb:3306/${MYSQL_DATABASE:-mis_db}
+      DATABASE_URL: mysql://${MYSQL_USER:-mis_user}:${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}@mariadb:3306/${MYSQL_DATABASE:-mis_db}
       # Redis
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-redispassword}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
       # JWT
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       # ThaiID OAuth
       THAID_CLIENT_ID: ${THAID_CLIENT_ID}
       THAID_CLIENT_SECRET: ${THAID_CLIENT_SECRET}
@@ -92,24 +116,28 @@ services:
   dev:
     image: node:22-alpine
     container_name: mis-app-dev
+    profiles:
+      - development
     working_dir: /app
     depends_on:
       mariadb:
         condition: service_healthy
       redis:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     environment:
       NODE_ENV: development
       PORT: 3000
       WATCHPACK_POLLING: "true" # Important for Docker on Windows/Mac
       # Database
-      DATABASE_URL: mysql://${MYSQL_USER:-mis_user}:${MYSQL_PASSWORD:-mis_password}@mariadb:3306/${MYSQL_DATABASE:-mis_db}
+      DATABASE_URL: mysql://${MYSQL_USER:-mis_user}:${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}@mariadb:3306/${MYSQL_DATABASE:-mis_db}
       # Redis
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-redispassword}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
       # JWT
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       # ThaiID OAuth
       THAID_CLIENT_ID: ${THAID_CLIENT_ID}
       THAID_CLIENT_SECRET: ${THAID_CLIENT_SECRET}

@@ -37,9 +37,10 @@ if [ ! -f .env ]; then
     exit 1
 fi
 
-# Load environment variables
-print_info "Loading environment variables..."
-export $(cat .env | grep -v '^#' | xargs)
+if grep -Eq '^(MYSQL_ROOT_PASSWORD|MYSQL_PASSWORD|REDIS_PASSWORD|JWT_SECRET|ADMIN_PASSWORD)=replace-with-' .env; then
+    print_error "Replace all security placeholders in .env before deployment."
+    exit 1
+fi
 
 # Stop existing containers
 print_info "Stopping existing containers..."
@@ -80,10 +81,6 @@ else
     docker-compose logs app
 fi
 
-# Run database migrations/seed
-print_info "Running database seed..."
-docker-compose exec -T app npx tsx server/scripts/seed.ts || print_warning "Seed failed or already seeded"
-
 # Show logs
 print_info "Showing recent logs..."
 docker-compose logs --tail=20 app
@@ -94,4 +91,4 @@ echo ""
 docker-compose ps
 
 print_info "Application is running at: http://localhost:${APP_PORT:-3000}"
-print_info "Default credentials: admin / admin123"
+print_info "Initial username: admin (password is read from ADMIN_PASSWORD during first setup)"

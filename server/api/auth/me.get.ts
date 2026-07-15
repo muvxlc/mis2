@@ -16,6 +16,7 @@ export default defineEventHandler(async (event) => {
     fullName: users.fullName,
     role: roles.name,
     agency: agencies.name,
+    isActive: users.isActive,
   })
   .from(users)
   .leftJoin(roles, eq(users.roleId, roles.id))
@@ -24,7 +25,7 @@ export default defineEventHandler(async (event) => {
   .limit(1);
 
   const user = userList[0];
-  if (!user) return null;
+  if (!user || user.isActive !== 1) return null;
 
   return {
     id: user.id,

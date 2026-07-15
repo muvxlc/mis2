@@ -3,14 +3,28 @@ import { users, roles } from '../../../database/schema';
 import { eq } from 'drizzle-orm';
 import { exchangeThaIDCode, getThaIDUserInfo } from '../../../utils/thaid';
 import { createToken } from '../../../utils/auth';
+import { timingSafeEqual } from 'node:crypto';
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event);
   const code = query.code as string;
+  const receivedState = typeof query.state === 'string' ? query.state : '';
+  const expectedState = getCookie(event, 'thaid_oauth_state') || '';
 
-  if (!code) {
-    throw createError({ statusCode: 400, statusMessage: 'Authorization code missing' });
+  if (!code || !receivedState || !expectedState) {
+    throw createError({ statusCode: 400, statusMessage: 'Invalid OAuth callback' });
   }
+
+  const receivedStateBuffer = Buffer.from(receivedState);
+  const expectedStateBuffer = Buffer.from(expectedState);
+  if (
+    receivedStateBuffer.length !== expectedStateBuffer.length ||
+    !timingSafeEqual(receivedStateBuffer, expectedStateBuffer)
+  ) {
+    throw createError({ statusCode: 400, statusMessage: 'Invalid OAuth state' });
+  }
+
+  deleteCookie(event, 'thaid_oauth_state', { path: '/' });
 
   try {
     // 1. Exchange code for access token
@@ -23,7 +37,7 @@ export default defineEventHandler(async (event) => {
     const pid = thaidUser.pid;
     const fullName = thaidUser.name;
 
-    if (!pid) {
+    if (typeof pid !== 'string' || !/^\d{13}$/.test(pid)) {
       throw createError({ statusCode: 400, statusMessage: 'PID not found in ThaiID response' });
     }
 
@@ -34,15 +48,26 @@ export default defineEventHandler(async (event) => {
       // Get default 'user' role
       const userRole = (await db.select().from(roles).where(eq(roles.name, 'user')).limit(1))[0];
       
+      if (!userRole) {
+        throw new Error('Default user role is not configured');
+      }
+
       const newUser = {
         username: `thaid_${pid}`,
         thaiId: pid,
         fullName: fullName || 'ThaiID User',
-        roleId: userRole?.id || 4, // Default to user role if not found
+        roleId: userRole.id,
       };
 
-      const result = await db.insert(users).values(newUser);
-      user = { id: result[0].insertId, ...newUser } as any;
+      await db.insert(users).values(newUser);
+      user = (await db.select().from(users).where(eq(users.thaiId, pid)).limit(1))[0];
+      if (!user) {
+        throw new Error('Failed to create ThaiID user');
+      }
+    }
+
+    if (user.isActive === 0) {
+      throw createError({ statusCode: 403, statusMessage: 'User account is inactive' });
     }
 
     // 4. Create JWT Token
@@ -58,6 +83,7 @@ export default defineEventHandler(async (event) => {
     setCookie(event, 'token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
       maxAge: 60 * 60 * 2, // 2 hours
       path: '/'
     });
@@ -65,8 +91,7 @@ export default defineEventHandler(async (event) => {
     // 6. Redirect to dashboard
     return sendRedirect(event, '/');
 
-  } catch (e: any) {
-    console.error('ThaiID Login Error:', e);
-    throw createError({ statusCode: 500, statusMessage: 'Login failed: ' + (e.message || 'Unknown error') });
+  } catch {
+    throw createError({ statusCode: 500, statusMessage: 'ThaiID login failed' });
   }
 });

@@ -1,15 +1,16 @@
-# Build stage
-FROM node:22-alpine AS builder
-
-# Set working directory
+# Install development dependencies once for the build and database initializer
+FROM node:22-alpine AS development-deps
 WORKDIR /app
-
-# Copy package files
 COPY package*.json ./
-
-# Install ALL dependencies (including devDependencies for build)
 RUN npm ci
 
+# Database initialization stage
+FROM development-deps AS database-init
+COPY . .
+CMD ["sh", "-c", "npm run db:migrate && npm run db:seed"]
+
+# Build stage
+FROM development-deps AS builder
 # Copy source code
 COPY . .
 
@@ -20,7 +21,7 @@ RUN npm run build
 FROM node:22-alpine AS production-deps
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 # Production stage
 FROM node:22-alpine
@@ -34,10 +35,6 @@ WORKDIR /app
 # Copy built app and production dependencies
 COPY --from=builder /app/.output ./
 COPY --from=production-deps /app/node_modules ./node_modules
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/server ./server
-COPY --from=builder /app/drizzle ./drizzle
-COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \

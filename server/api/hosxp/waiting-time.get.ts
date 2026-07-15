@@ -2,6 +2,7 @@ import { db } from '../../utils/db';
 import { externalDatabases } from '../../database/schema';
 import { getExternalDb } from '../../utils/externalDb';
 import { sql, eq, and } from 'drizzle-orm';
+import { requireAuthenticatedUser } from '../../utils/authorization';
 
 // In-Memory Server Cache to optimize and protect the HOSxP database
 interface CacheEntry {
@@ -11,6 +12,7 @@ interface CacheEntry {
 const rawVisitsCache = new Map<string, CacheEntry>();
 
 export default defineEventHandler(async (event) => {
+  await requireAuthenticatedUser(event);
   const query = getQuery(event);
   const startDate = query.startDate as string || new Date().toISOString().split('T')[0];
   const endDate = query.endDate as string || new Date().toISOString().split('T')[0];
@@ -87,7 +89,7 @@ export default defineEventHandler(async (event) => {
         HOUR(o.vsttime) AS visit_hour,
         
         -- [สถิติรายบุคคล (หน่วยนาที)]
-        TIMESTAMPDIFF(MINUTE, t1.service_end_datetime, t2.service_begin_datetime) AS wait_screen_m,
+        TIMESTAMPDIFF(MINUTE, IFNULL(t1.service_end_datetime, CONCAT(o.vstdate, ' ', o.vsttime)), t2.service_begin_datetime) AS wait_screen_m,
         ROUND(t2.service_time_second / 60, 2) AS screen_m,
         TIMESTAMPDIFF(MINUTE, t2.service_end_datetime, t3.service_begin_datetime) AS wait_doctor_m,
         ROUND(t3.service_time_second / 60, 2) AS doctor_m,
@@ -109,7 +111,7 @@ export default defineEventHandler(async (event) => {
         ) AS wait_drug_m,
         
         -- [วันเวลาดิบสำหรับการเจาะลึก Timeline]
-        DATE_FORMAT(t1.service_end_datetime, '%Y-%m-%d %H:%i:%s') AS reg_end_dt,
+        DATE_FORMAT(IFNULL(t1.service_end_datetime, CONCAT(o.vstdate, ' ', o.vsttime)), '%Y-%m-%d %H:%i:%s') AS reg_end_dt,
         DATE_FORMAT(t2.service_begin_datetime, '%Y-%m-%d %H:%i:%s') AS screen_begin_dt,
         DATE_FORMAT(t2.service_end_datetime, '%Y-%m-%d %H:%i:%s') AS screen_end_dt,
         DATE_FORMAT(t3.service_begin_datetime, '%Y-%m-%d %H:%i:%s') AS doc_begin_dt,
@@ -146,7 +148,7 @@ export default defineEventHandler(async (event) => {
         JOIN kskdepartment s ON o.main_dep = s.depcode
         WHERE ${innerWhere}
       ) o
-      JOIN (
+      LEFT JOIN (
         SELECT vn, MIN(service_end_datetime) AS service_end_datetime
         FROM ovst_service_time
         WHERE ovst_service_time_type_code = 'OPD-NEW-VISIT'
@@ -191,7 +193,7 @@ export default defineEventHandler(async (event) => {
         WHERE rx_dispenser_type_id = '4' AND confirm_substock_transaction = 'Y'
         GROUP BY vn
       ) rx ON rx.vn = o.vn AND rx.rx_dispenser_datetime >= t3.service_end_datetime
-      WHERE t2.service_begin_datetime >= t1.service_end_datetime
+      WHERE t2.service_begin_datetime >= IFNULL(t1.service_end_datetime, CONCAT(o.vstdate, ' ', o.vsttime))
     `);
 
     const resultVisits = visits || [];

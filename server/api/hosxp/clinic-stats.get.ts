@@ -2,8 +2,10 @@ import { db } from '../../utils/db';
 import { externalDatabases } from '../../database/schema';
 import { getExternalDb } from '../../utils/externalDb';
 import { sql, eq, and } from 'drizzle-orm';
+import { requireAuthenticatedUser } from '../../utils/authorization';
 
 export default defineEventHandler(async (event) => {
+  await requireAuthenticatedUser(event);
   try {
     // 1. ดึงการตั้งค่าฐานข้อมูลที่ Active ตัวแรก
     const [config] = await db.select()

@@ -45,6 +45,7 @@ docs/maestro/
 .backup.sql
 *.sql
 !init-db.sql
+!drizzle/*.sql
 
 # Docker (keep for base project)
 # Dockerfile

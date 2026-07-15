@@ -67,20 +67,19 @@ chmod +x deploy.sh
 # หรือ manual
 docker-compose up -d --build
 
-# 4. Seed database
-docker-compose exec -T app npm run db:seed
+# Database migration and initial seed run automatically before the app starts
 ```
 
 ดู [DOCKER.md](./DOCKER.md) สำหรับรายละเอียดเพิ่มเติมเกี่ยวกับ Docker deployment
 
 ## บัญชีผู้ใช้เริ่มต้น
 
-หลังจาก run seed จะมีบัญชี admin ดังนี้:
+เมื่อเริ่มระบบด้วยฐานข้อมูลใหม่ ระบบจะสร้างบัญชี admin ดังนี้:
 
 - **Username**: `admin`
-- **Password**: `admin123`
+- **Password**: ค่าที่กำหนดใน `ADMIN_PASSWORD` ภายในไฟล์ `.env`
 
-⚠️ **สำคัญ**: ควรเปลี่ยนรหัสผ่านหลังจากการติดตั้งครั้งแรก!
+⚠️ **สำคัญ**: ใช้รหัสผ่านสุ่มที่ยาวอย่างน้อย 12 ตัวอักษรและห้าม commit ไฟล์ `.env`
 
 ## โครงสร้างโปรเจกต์
 

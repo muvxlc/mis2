@@ -22,6 +22,7 @@ export default defineEventHandler(async (event) => {
     fullName: users.fullName,
     role: roles.name,
     agencyId: users.agencyId,
+    isActive: users.isActive,
   })
   .from(users)
   .leftJoin(roles, eq(users.roleId, roles.id))
@@ -30,7 +31,7 @@ export default defineEventHandler(async (event) => {
 
   const user = userList[0];
 
-  if (!user || !user.passwordHash) {
+  if (!user || !user.passwordHash || user.isActive !== 1) {
     throw createError({
       statusCode: 401,
       statusMessage: 'Invalid credentials',
@@ -56,6 +57,7 @@ export default defineEventHandler(async (event) => {
   setCookie(event, 'token', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
     maxAge: 60 * 60 * 2, // 2 hours
     path: '/',
   });

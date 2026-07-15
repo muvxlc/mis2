@@ -40,6 +40,7 @@ coverage
 .backup.sql
 *.sql
 !init-db.sql
+!drizzle/*.sql
 
 # Docker
 Dockerfile

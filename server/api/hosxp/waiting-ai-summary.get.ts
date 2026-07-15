@@ -2,6 +2,7 @@ import { db } from '../../utils/db';
 import { externalDatabases } from '../../database/schema';
 import { getExternalDb } from '../../utils/externalDb';
 import { sql, eq, and } from 'drizzle-orm';
+import { requireAuthenticatedUser } from '../../utils/authorization';
 
 // In-Memory Cache เพื่อจำกัด Request และควบคุมโควตา Gemini API ฟรี
 interface CacheEntry {
@@ -11,6 +12,7 @@ interface CacheEntry {
 const aiSummaryCache = new Map<string, CacheEntry>();
 
 export default defineEventHandler(async (event) => {
+  await requireAuthenticatedUser(event);
   const query = getQuery(event);
   const startDate = query.startDate as string || new Date().toISOString().split('T')[0];
   const endDate = query.endDate as string || new Date().toISOString().split('T')[0];
@@ -108,7 +110,7 @@ export default defineEventHandler(async (event) => {
         COUNT(DISTINCT o.vstdate) AS day_cc,
         COUNT(DISTINCT o.vn) AS visit_cc,
         
-        ROUND(AVG(TIMESTAMPDIFF(MINUTE, t1.service_end_datetime, t2.service_begin_datetime)), 0) AS wait_screen_cc,
+        ROUND(AVG(TIMESTAMPDIFF(MINUTE, IFNULL(t1.service_end_datetime, CONCAT(o.vstdate, ' ', o.vsttime)), t2.service_begin_datetime)), 0) AS wait_screen_cc,
         ROUND(AVG(t2.service_time_second / 60), 0) AS screen_cc,
         
         ROUND(AVG(IFNULL(TIMESTAMPDIFF(MINUTE, t2.service_end_datetime, t3.service_begin_datetime), NULL)), 0) AS wait_doctor,
@@ -117,19 +119,20 @@ export default defineEventHandler(async (event) => {
         ROUND(AVG(IFNULL(TIMESTAMPDIFF(MINUTE, t3.service_end_datetime, rx.rx_dispenser_datetime), NULL)), 0) AS wait_drug_cc,
 
         (
-          ROUND(AVG(TIMESTAMPDIFF(MINUTE, t1.service_end_datetime, t2.service_begin_datetime)), 0) +
+          ROUND(AVG(TIMESTAMPDIFF(MINUTE, IFNULL(t1.service_end_datetime, CONCAT(o.vstdate, ' ', o.vsttime)), t2.service_begin_datetime)), 0) +
           ROUND(AVG(t2.service_time_second / 60), 0) +
           ROUND(AVG(IFNULL(TIMESTAMPDIFF(MINUTE, t2.service_end_datetime, t3.service_begin_datetime), NULL)), 0) +
           ROUND(AVG(IFNULL(t3.service_time_second / 60, NULL)), 0) +
           ROUND(AVG(IFNULL(TIMESTAMPDIFF(MINUTE, t3.service_end_datetime, rx.rx_dispenser_datetime), NULL)), 0)
         ) AS total_wait,
         
-        MIN(TIMESTAMPDIFF(MINUTE, t1.service_end_datetime, t2.service_begin_datetime) + (t2.service_time_second / 60) + IFNULL(TIMESTAMPDIFF(MINUTE, t2.service_end_datetime, t3.service_begin_datetime), 0) + IFNULL(t3.service_time_second / 60, 0) + IFNULL(TIMESTAMPDIFF(MINUTE, t3.service_end_datetime, rx.rx_dispenser_datetime), 0)) AS m_min_total,
-        MAX(TIMESTAMPDIFF(MINUTE, t1.service_end_datetime, t2.service_begin_datetime) + (t2.service_time_second / 60) + IFNULL(TIMESTAMPDIFF(MINUTE, t2.service_end_datetime, t3.service_begin_datetime), 0) + IFNULL(t3.service_time_second / 60, 0) + IFNULL(TIMESTAMPDIFF(MINUTE, t3.service_end_datetime, rx.rx_dispenser_datetime), 0)) AS m_max_total
+        MIN(TIMESTAMPDIFF(MINUTE, IFNULL(t1.service_end_datetime, CONCAT(o.vstdate, ' ', o.vsttime)), t2.service_begin_datetime) + (t2.service_time_second / 60) + IFNULL(TIMESTAMPDIFF(MINUTE, t2.service_end_datetime, t3.service_begin_datetime), 0) + IFNULL(t3.service_time_second / 60, 0) + IFNULL(TIMESTAMPDIFF(MINUTE, t3.service_end_datetime, rx.rx_dispenser_datetime), 0)) AS m_min_total,
+        MAX(TIMESTAMPDIFF(MINUTE, IFNULL(t1.service_end_datetime, CONCAT(o.vstdate, ' ', o.vsttime)), t2.service_begin_datetime) + (t2.service_time_second / 60) + IFNULL(TIMESTAMPDIFF(MINUTE, t2.service_end_datetime, t3.service_begin_datetime), 0) + IFNULL(t3.service_time_second / 60, 0) + IFNULL(TIMESTAMPDIFF(MINUTE, t3.service_end_datetime, rx.rx_dispenser_datetime), 0)) AS m_max_total
       FROM (
         SELECT 
           o.vn, 
           o.vstdate,
+          o.vsttime,
           s.department AS departmentname
         FROM ovst o
         JOIN kskdepartment s ON o.main_dep = s.depcode
@@ -140,7 +143,7 @@ export default defineEventHandler(async (event) => {
           AND o.vsttime BETWEEN '08:00:00' AND '16:00:59'
           ${sql.raw(filterConditions)}
       ) o
-      JOIN (
+      LEFT JOIN (
         SELECT vn, MAX(service_end_datetime) AS service_end_datetime
         FROM ovst_service_time
         WHERE ovst_service_time_type_code = 'OPD-NEW-VISIT'
@@ -170,7 +173,7 @@ export default defineEventHandler(async (event) => {
         WHERE rx_dispenser_type_id = '4' AND confirm_substock_transaction = 'Y'
         GROUP BY vn
       ) rx ON rx.vn = o.vn AND rx.rx_dispenser_datetime >= t3.service_end_datetime
-      WHERE t2.service_begin_datetime >= t1.service_end_datetime
+      WHERE t2.service_begin_datetime >= IFNULL(t1.service_end_datetime, CONCAT(o.vstdate, ' ', o.vsttime))
       GROUP BY departmentname 
     `);
 
@@ -202,14 +205,14 @@ export default defineEventHandler(async (event) => {
     const [kpiStats]: any[] = await extDb.execute(sql`
       SELECT 
         SUM(CASE WHEN (
-          TIMESTAMPDIFF(MINUTE, t1.service_end_datetime, t2.service_begin_datetime) + 
+          TIMESTAMPDIFF(MINUTE, IFNULL(t1.service_end_datetime, CONCAT(o.vstdate, ' ', o.vsttime)), t2.service_begin_datetime) +
           (t2.service_time_second / 60) + 
           IFNULL(TIMESTAMPDIFF(MINUTE, t2.service_end_datetime, t3.service_begin_datetime), 0) + 
           IFNULL(t3.service_time_second / 60, 0) + 
           IFNULL(TIMESTAMPDIFF(MINUTE, t3.service_end_datetime, rx.rx_dispenser_datetime), 0)
         ) <= 60 THEN 1 ELSE 0 END) AS kpi_pass_count
       FROM (
-        SELECT o.vn
+        SELECT o.vn, o.vstdate, o.vsttime
         FROM ovst o
         LEFT JOIN opdscreen os ON os.vn = o.vn
         WHERE CONCAT(o.vstdate, ' ', o.vsttime) BETWEEN ${dateTimeStart} AND ${dateTimeEnd} 
@@ -218,7 +221,7 @@ export default defineEventHandler(async (event) => {
           AND o.vsttime BETWEEN '08:00:00' AND '16:00:59'
           ${sql.raw(filterConditions)}
       ) o
-      JOIN (
+      LEFT JOIN (
         SELECT vn, MAX(service_end_datetime) AS service_end_datetime
         FROM ovst_service_time
         WHERE ovst_service_time_type_code = 'OPD-NEW-VISIT'
@@ -248,7 +251,7 @@ export default defineEventHandler(async (event) => {
         WHERE rx_dispenser_type_id = '4' AND confirm_substock_transaction = 'Y'
         GROUP BY vn
       ) rx ON rx.vn = o.vn AND rx.rx_dispenser_datetime >= t3.service_end_datetime
-      WHERE t2.service_begin_datetime >= t1.service_end_datetime
+      WHERE t2.service_begin_datetime >= IFNULL(t1.service_end_datetime, CONCAT(o.vstdate, ' ', o.vsttime))
     `);
 
     const totalPatients = Number(row.visit_cc || 0);

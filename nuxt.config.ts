@@ -3,6 +3,21 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: false },
 
+  routeRules: {
+    '/**': {
+      headers: {
+        'x-content-type-options': 'nosniff',
+        'x-frame-options': 'DENY',
+        'referrer-policy': 'strict-origin-when-cross-origin',
+        'permissions-policy': 'camera=(), microphone=(), geolocation=()',
+        'cross-origin-opener-policy': 'same-origin',
+        ...(process.env.NODE_ENV === 'production'
+          ? { 'strict-transport-security': 'max-age=31536000; includeSubDomains' }
+          : {})
+      }
+    }
+  },
+
   future: {
     compatibilityVersion: 4
   },

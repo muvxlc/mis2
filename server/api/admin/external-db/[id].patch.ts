@@ -2,8 +2,10 @@ import { db } from '../../../utils/db';
 import { externalDatabases } from '../../../database/schema';
 import { eq } from 'drizzle-orm';
 import { closeExternalPool } from '../../../utils/externalDb';
+import { requireAdmin } from '../../../utils/authorization';
 
 export default defineEventHandler(async (event) => {
+  await requireAdmin(event);
   const id = Number(getRouterParam(event, 'id'));
   const body = await readBody(event);
 
@@ -28,7 +30,7 @@ export default defineEventHandler(async (event) => {
     // Close existing pool before updating (to force recreation with new settings)
     await closeExternalPool(id, existing.type as 'mysql' | 'postgres');
 
-    const updateData: any = {
+    const updateData: Partial<typeof externalDatabases.$inferInsert> = {
       name: body.name,
       type: body.type,
       host: body.host,
@@ -48,10 +50,10 @@ export default defineEventHandler(async (event) => {
       .where(eq(externalDatabases.id, id));
 
     return { success: true };
-  } catch (e: any) {
+  } catch {
     throw createError({
       statusCode: 500,
-      statusMessage: e.message || 'Failed to update external database connection',
+      statusMessage: 'Failed to update external database connection',
     });
   }
 });

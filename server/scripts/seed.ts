@@ -25,27 +25,30 @@ async function seed() {
   });
 
   if (superadminRole && defaultAgency) {
-    const hashedPassword = await bcrypt.hash('admin123', 10);
-    await db.insert(users).values({
-      username: 'admin',
-      passwordHash: hashedPassword,
-      fullName: 'Super Admin',
-      email: 'admin@example.com',
-      roleId: superadminRole.id,
-      agencyId: defaultAgency.id,
-    }).onDuplicateKeyUpdate({
-      set: {
+    const existingAdmin = await db.query.users.findFirst({
+      where: (users, { eq }) => eq(users.username, 'admin'),
+    });
+
+    if (!existingAdmin) {
+      const adminPassword = process.env.ADMIN_PASSWORD;
+      if (!adminPassword || adminPassword.length < 12 || adminPassword.startsWith('replace-with-')) {
+        throw new Error('ADMIN_PASSWORD must be set to at least 12 characters when creating the initial admin');
+      }
+
+      const hashedPassword = await bcrypt.hash(adminPassword, 12);
+      await db.insert(users).values({
+        username: 'admin',
         passwordHash: hashedPassword,
         fullName: 'Super Admin',
         email: 'admin@example.com',
         roleId: superadminRole.id,
         agencyId: defaultAgency.id,
-      }
-    });
+      });
+    }
   }
 
   console.log('Seeding completed!');
-  console.log('Default credentials: username=admin, password=admin123');
+  console.log('Initial admin account is ready.');
   process.exit(0);
 }
 

@@ -1,10 +1,10 @@
 import { db } from '../../utils/db';
 import { externalDatabases } from '../../database/schema';
 import { desc } from 'drizzle-orm';
+import { requireAdmin } from '../../utils/authorization';
 
 export default defineEventHandler(async (event) => {
-  // Check admin role (middleware should handle this, but double check is good)
-  // For now assuming global middleware handles auth
+  await requireAdmin(event);
   
   try {
     const list = await db.select().from(externalDatabases).orderBy(desc(externalDatabases.createdAt));
@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
       ...item,
       password: '••••••••'
     }));
-  } catch (e: any) {
+  } catch {
     throw createError({
       statusCode: 500,
       statusMessage: 'Failed to fetch external databases',

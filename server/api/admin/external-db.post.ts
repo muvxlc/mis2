@@ -1,7 +1,9 @@
 import { db } from '../../utils/db';
 import { externalDatabases } from '../../database/schema';
+import { requireAdmin } from '../../utils/authorization';
 
 export default defineEventHandler(async (event) => {
+  await requireAdmin(event);
   const body = await readBody(event);
   
   if (!body.name || !body.host || !body.username || !body.password || !body.database) {
@@ -24,10 +26,10 @@ export default defineEventHandler(async (event) => {
     });
 
     return { success: true, result };
-  } catch (e: any) {
+  } catch {
     throw createError({
       statusCode: 500,
-      statusMessage: e.message || 'Failed to create external database connection',
+      statusMessage: 'Failed to create external database connection',
     });
   }
 });

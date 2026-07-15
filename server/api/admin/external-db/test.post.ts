@@ -1,6 +1,8 @@
 import { testExternalConnection } from '../../../utils/externalDb';
+import { requireAdmin } from '../../../utils/authorization';
 
 export default defineEventHandler(async (event) => {
+  await requireAdmin(event);
   const body = await readBody(event);
   
   if (!body.host || !body.username || !body.password || !body.database) {
@@ -15,8 +17,6 @@ export default defineEventHandler(async (event) => {
     const dbType = typeof body.type === 'object' ? body.type.value : (body.type || 'mysql');
     const password = body.password || '';
     
-    console.log(`Testing connection to ${dbType} at ${body.host}:${body.port}`);
-    
     const success = await testExternalConnection({
       type: dbType,
       host: body.host,
@@ -25,13 +25,11 @@ export default defineEventHandler(async (event) => {
       password: password,
       database: body.database,
     });
-    console.log('Connection test successful');
     return { success };
-  } catch (e: any) {
-    console.error('Connection test failed:', e.message);
+  } catch {
     throw createError({
       statusCode: 400,
-      statusMessage: `Connection failed: ${e.message}`,
+      statusMessage: 'Connection failed',
     });
   }
 });
